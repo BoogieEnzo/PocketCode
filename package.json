@@ -41,7 +41,7 @@
   "files": [
     "cli.js",
     "auth-proxy.mjs",
-    "hash-password.mjs",
+    "generate-token.mjs",
     "setup.sh",
     "start.sh",
     "stop.sh",
@@ -56,7 +56,7 @@
     "start": "node auth-proxy.mjs",
     "stop": "./stop.sh",
     "setup": "./setup.sh",
-    "hash-password": "node hash-password.mjs",
+    "generate-token": "node generate-token.mjs",
     "prepublishOnly": "chmod +x cli.js setup.sh start.sh stop.sh claude-ttyd-session"
   }
 }

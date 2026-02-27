@@ -1,19 +1,22 @@
-#!/bin/bash
+#!/bin/zsh
 # Accept session name, folder, and tool command as CLI arguments (passed by ttyd via --url-arg)
 SESSION_NAME="${1:-claude-web}"
 WORK_DIR="${2:-$HOME}"
 TOOL_CMD="${3:-claude}"
 
+# Ensure Homebrew PATH is available (launchd has a minimal environment)
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 # Source shell profile to get proper PATH and environment
 if [ -f "$HOME/.zshrc" ]; then
-    source "$HOME/.zshrc"
+    source "$HOME/.zshrc" 2>/dev/null
 elif [ -f "$HOME/.bash_profile" ]; then
-    source "$HOME/.bash_profile"
+    source "$HOME/.bash_profile" 2>/dev/null
 fi
 
 # Map 'shell' to actual shell binary
 if [ "$TOOL_CMD" = "shell" ]; then
-    TOOL_CMD="${SHELL:-/bin/bash}"
+    TOOL_CMD="${SHELL:-/bin/zsh}"
 fi
 
 # Validate tool command (only alphanumeric, hyphens, underscores, slashes, dots allowed)
@@ -33,4 +36,10 @@ mkdir -p "$SOCKET_DIR"
 SOCKET="$SOCKET_DIR/$SESSION_NAME.dtach"
 
 cd "$WORK_DIR"
-exec dtach -A "$SOCKET" -Ez "$TOOL_CMD"
+
+# Claude Code: use dangerously-skip-permissions for remote terminal convenience
+if [ "$TOOL_CMD" = "claude" ]; then
+    exec dtach -A "$SOCKET" -Ez claude --dangerously-skip-permissions
+else
+    exec dtach -A "$SOCKET" -Ez "$TOOL_CMD"
+fi

@@ -313,6 +313,16 @@
       color: #ff0000;
     }
 
+    .token-message {
+      font-size: 14px;
+      line-height: 2;
+      color: var(--terminal-amber);
+    }
+
+    .token-message p::before {
+      content: '';
+    }
+
     .footer {
       margin-top: 24px;
       padding-top: 16px;
@@ -366,32 +376,11 @@ READY_FOR_INPUT........................[OK]
         <div class="prompt">authentication required</div>
       </div>
 
-      {{ERROR}}
-
-      <form method="POST" action="/login">
-        <div class="form-group">
-          <label for="username">User</label>
-          <input
-            type="text"
-            id="username"
-            name="username"
-            required
-            autofocus
-            autocomplete="username"
-            placeholder="enter username">
-        </div>
-        <div class="form-group">
-          <label for="password">Pass</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            required
-            autocomplete="current-password"
-            placeholder="enter password">
-        </div>
-        <button type="submit">▶ Execute Login</button>
-      </form>
+      <div class="token-message">
+        <p>> ACCESS_DENIED</p>
+        <p>> Please use your token link to authenticate.</p>
+        <p>> Contact your administrator if you don't have one.</p>
+      </div>
 
       <div class="footer">
         SECURE CONNECTION ESTABLISHED // ENCRYPTED TRANSPORT

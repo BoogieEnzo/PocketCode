@@ -90,21 +90,14 @@ if [[ "$USE_CLOUDFLARE" == true ]]; then
     print_success "Will configure: https://${FULL_DOMAIN}"
 fi
 
-# Get username for authentication
-read -p "Enter username for web login (default: claude): " WEB_USERNAME
-WEB_USERNAME=${WEB_USERNAME:-claude}
-
-# Generate password
-print_info "Generating secure password..."
-WEB_PASSWORD=$(openssl rand -base64 24)
-print_success "Password generated: $WEB_PASSWORD"
+# Generate access token
+print_info "Generating access token..."
+TOKEN_OUTPUT=$(node "$SCRIPT_DIR/generate-token.mjs" 2>&1)
+echo "$TOKEN_OUTPUT"
+ACCESS_TOKEN=$(echo "$TOKEN_OUTPUT" | grep "Your access token:" | sed 's/.*Your access token: //')
 echo ""
-print_warning "Save this password now! It will NOT be stored in the credentials file."
+print_warning "Save this token now! It will be your only way to log in."
 read -p "Press Enter to continue once you have saved it..."
-
-# Generate auth hash
-print_info "Generating authentication hash..."
-node "$SCRIPT_DIR/hash-password.mjs" "$WEB_USERNAME" "$WEB_PASSWORD"
 print_success "Authentication configured"
 
 # Step 2: Check dependencies
@@ -298,17 +291,20 @@ fi
 print_info "Creating dtach wrapper script..."
 
 cat > "$SCRIPT_DIR/claude-ttyd-session" << EOF
-#!/bin/bash
+#!/bin/zsh
 # Accept session name, folder, and tool command as CLI arguments (passed by ttyd via --url-arg)
 SESSION_NAME="\${1:-claude-web}"
 WORK_DIR="\${2:-\$HOME}"
 TOOL_CMD="\${3:-claude}"
 
+# Ensure Homebrew PATH is available (launchd has a minimal environment)
+export PATH="/opt/homebrew/bin:/usr/local/bin:\$PATH"
+
 # Source shell profile to get proper PATH and environment
 if [ -f "\$HOME/.zshrc" ]; then
-    source "\$HOME/.zshrc"
+    source "\$HOME/.zshrc" 2>/dev/null
 elif [ -f "\$HOME/.bash_profile" ]; then
-    source "\$HOME/.bash_profile"
+    source "\$HOME/.bash_profile" 2>/dev/null
 fi
 
 # Validate tool command (only alphanumeric, hyphens, underscores allowed)
@@ -490,9 +486,7 @@ if [[ "$USE_CLOUDFLARE" == true ]]; then
 # Claude Code Remote Access Credentials
 # Generated: $(date)
 
-URL: https://$FULL_DOMAIN
-Username: $WEB_USERNAME
-Password: [shown during setup - not saved for security]
+Access URL: https://$FULL_DOMAIN/?token=$ACCESS_TOKEN
 
 Domain: $DOMAIN
 Subdomain: $SUBDOMAIN
@@ -516,9 +510,7 @@ else
 # Generated: $(date)
 # Mode: Localhost only (no Cloudflare)
 
-URL: http://localhost:7681
-Username: $WEB_USERNAME
-Password: [shown during setup - not saved for security]
+Access URL: http://localhost:7681/?token=$ACCESS_TOKEN
 
 # Configuration Files:
 - auth-proxy service: ~/Library/LaunchAgents/com.authproxy.claude.plist
@@ -597,17 +589,14 @@ print_header "Setup Complete!"
 if [[ "$USE_CLOUDFLARE" == true ]]; then
     echo -e "${GREEN}✓ Claude Code is now accessible remotely!${NC}"
     echo ""
-    echo "Access URL: ${BLUE}https://$FULL_DOMAIN${NC}"
-    echo "Username: ${BLUE}$WEB_USERNAME${NC}"
-    echo "Password: ${BLUE}$WEB_PASSWORD${NC}"
+    echo "Access URL: ${BLUE}https://$FULL_DOMAIN/?token=$ACCESS_TOKEN${NC}"
     echo ""
-    print_warning "SAVE THESE CREDENTIALS! They're also in: $SCRIPT_DIR/credentials.txt"
+    print_warning "SAVE THIS URL! It's also in: $SCRIPT_DIR/credentials.txt"
     echo ""
     echo "Next steps:"
     echo "  1. Wait 5-30 minutes for DNS to fully propagate"
-    echo "  2. Open https://$FULL_DOMAIN in your browser (or on your phone)"
-    echo "  3. Enter your username and password"
-    echo "  4. Start using Claude Code from anywhere!"
+    echo "  2. Open the access URL in your browser (or on your phone)"
+    echo "  3. Start using Claude Code from anywhere!"
     echo ""
     echo "Logs:"
     echo "  auth-proxy: ~/Library/Logs/auth-proxy.log"
@@ -615,16 +604,13 @@ if [[ "$USE_CLOUDFLARE" == true ]]; then
 else
     echo -e "${GREEN}✓ Claude Code is now accessible locally!${NC}"
     echo ""
-    echo "Access URL: ${BLUE}http://localhost:7681${NC}"
-    echo "Username: ${BLUE}$WEB_USERNAME${NC}"
-    echo "Password: ${BLUE}$WEB_PASSWORD${NC}"
+    echo "Access URL: ${BLUE}http://localhost:7681/?token=$ACCESS_TOKEN${NC}"
     echo ""
-    print_warning "SAVE THESE CREDENTIALS! They're also in: $SCRIPT_DIR/credentials.txt"
+    print_warning "SAVE THIS URL! It's also in: $SCRIPT_DIR/credentials.txt"
     echo ""
     echo "Next steps:"
-    echo "  1. Open http://localhost:7681 in your browser"
-    echo "  2. Enter your username and password"
-    echo "  3. Start using Claude Code!"
+    echo "  1. Open the access URL in your browser"
+    echo "  2. Start using Claude Code!"
     echo ""
     echo "Logs:"
     echo "  auth-proxy: ~/Library/Logs/auth-proxy.log"

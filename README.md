@@ -1,220 +1,140 @@
 # remotelab
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple)](https://github.com/trmquang93/remotelab)
-[![Node.js 18+](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js&logoColor=white)](https://nodejs.org)
-[![npm](https://img.shields.io/npm/v/@trmquang93/remotelab?logo=npm)](https://www.npmjs.com/package/@trmquang93/remotelab)
-[![GitHub stars](https://img.shields.io/github/stars/trmquang93/remotelab?style=social)](https://github.com/trmquang93/remotelab/stargazers)
-
-Access any AI coding CLI tool — Claude Code, GitHub Copilot, Codex, Cline, and more — from any browser on any device via HTTPS. Works on your phone, tablet, or any machine that can open a web page.
+Access any AI coding CLI tool — Claude Code, GitHub Copilot, Codex, Cline, and more — from any browser on any device via HTTPS.
 
 ## Features
 
 - **Any CLI tool** — built-in support for Claude Code, GitHub Copilot, OpenAI Codex, Cline, and Kilo Code; add any custom CLI tool from the dashboard
 - **Multi-session dashboard** — create and manage multiple concurrent sessions, each pointing at a different project folder and tool
 - **Session persistence** — dtach keeps your tool running through browser disconnects; reconnecting reattaches to the same session
-- **Secure by default** — scrypt-hashed passwords, HttpOnly session cookies, localhost-only service binding, HTTPS via Cloudflare Tunnel
-- **Mobile-friendly** — works in iOS Safari, Android Chrome, and any modern browser; terminal auto-resizes
-
-## Dashboard
-
-![remotelab dashboard — multi-tool session manager](docs/dashboard.png)
-
-> Open your HTTPS URL on any device — log in, pick a tool, create a session pointing at a project folder, and get a full terminal in the browser. Switch between Claude Code, GitHub Copilot, Cline, or any custom CLI tool per session.
-
-## Demo
-
-![remotelab demo — dashboard and terminal on iPhone](docs/demo.gif)
-
-## Clipboard Image Paste
-
-Paste images directly from your clipboard into the remote terminal session. Copy any image (screenshot, photo, diagram) and press **Ctrl+V** / **Cmd+V** in the browser — the image is sent to the CLI tool as if it were a local file.
-
-![Clipboard image paste in a remote session](docs/clipboard-paste.png)
-
-> Copy an image on any device, switch to your remote terminal tab, and paste. The image appears inline in the conversation — no file upload dialog, no manual path entry.
-
-## Architecture
-
-```
-[Browser] --HTTPS--> [Cloudflare Tunnel] --localhost--> [auth-proxy:7681]
-                                                              |
-                                        +---------------------+---------------------+
-                                        |                     |                     |
-                                   GET /              GET /api/*            /terminal/*
-                                   Dashboard       Session APIs          Proxy to ttyd:7682
-                                                                                    |
-                                                                    claude-ttyd-session <name> <folder>
-                                                                                    |
-                                                                    dtach -A <socket> claude
-```
-
-Three services:
-
-| Service | Role |
-|---------|------|
-| **Cloudflare Tunnel** (`cloudflared`) | Provides HTTPS from the internet to localhost; no open inbound ports needed |
-| **auth-proxy** (`auth-proxy.mjs`) | Node.js server — login page, multi-session dashboard, session APIs, WebSocket proxy to ttyd |
-| **ttyd** | Turns a PTY into a WebSocket terminal; spawns `claude-ttyd-session` per connection |
+- **Token-based auth** — high-entropy random token link, no username/password needed; HttpOnly session cookies after login
+- **Mobile-friendly** — works in iOS Safari, Android Chrome, and any modern browser
 
 ## Prerequisites
 
-- **macOS** (Linux/systemd support is a [welcome contribution](CONTRIBUTING.md))
-- **Homebrew** — [brew.sh](https://brew.sh)
+- **macOS** with **Homebrew** installed
 - **Node.js 18+**
-- **At least one supported CLI tool** installed and authenticated — e.g. Claude Code (`npm install -g @anthropic-ai/claude-code && claude login`), GitHub Copilot, Cline, or any custom CLI tool
-- **A domain managed by Cloudflare** — a cheap domain ($1–12/year) on the free Cloudflare plan is sufficient
-
-## Installation
-
-**Via npm (recommended):**
-
-```bash
-npm install -g @trmquang93/remotelab
-remotelab setup
-```
-
-**Via npx (no install):**
-
-```bash
-npx @trmquang93/remotelab setup
-```
-
-**From source:**
-
-```bash
-git clone https://github.com/trmquang93/remotelab.git
-cd remotelab
-./setup.sh
-```
+- **A domain managed by Cloudflare** (free plan works)
+- At least one CLI tool installed (e.g. `claude`, `copilot`, etc.)
 
 ## Quick Start
 
+### Option 1: Interactive Setup
+
 ```bash
-npm install -g @trmquang93/remotelab
+git clone https://github.com/Ninglo/remotelab.git
+cd remotelab
+npm link
 remotelab setup
 ```
 
-The setup script will:
+### Option 2: Non-Interactive Setup (for automation / Claude Code)
 
-1. Prompt for your domain and subdomain
-2. Prompt for a login username (default: `claude`)
-3. Generate a secure random password
-4. Install missing dependencies via Homebrew
-5. Authenticate with Cloudflare and create a tunnel
-6. Configure DNS in Cloudflare
-7. Generate LaunchAgent plists and start all services
-8. Display your access URL and credentials
+```bash
+git clone https://github.com/Ninglo/remotelab.git
+cd remotelab
+npm link
 
-After setup, open `https://yoursubdomain.yourdomain.com` in any browser.
+# Install dependencies
+brew install dtach ttyd cloudflared
+
+# Authenticate cloudflared (opens browser - do this manually once)
+cloudflared tunnel login
+
+# Create tunnel and route DNS
+cloudflared tunnel create my-tunnel
+cloudflared tunnel route dns my-tunnel claude.yourdomain.com
+
+# Create cloudflared config
+cat > ~/.cloudflared/config.yml << EOF
+tunnel: my-tunnel
+credentials-file: ~/.cloudflared/<tunnel-id>.json
+protocol: http2
+
+ingress:
+  - hostname: claude.yourdomain.com
+    service: http://localhost:7681
+  - service: http_status:404
+EOF
+
+# Generate access token
+remotelab generate-token
+
+# Create LaunchAgent plists and start services
+remotelab start
+```
+
+## Authentication
+
+remotelab uses **token-based authentication**. After setup, you get a URL like:
+
+```
+https://claude.yourdomain.com/?token=<64-char-hex-token>
+```
+
+Open this URL to log in. The token is exchanged for a session cookie and stripped from the URL. Subsequent visits use the cookie — no need to keep the token in the URL.
+
+### Regenerate token
+
+```bash
+remotelab generate-token
+```
+
+The new token takes effect immediately (no restart needed).
+
+## CLI Commands
+
+```
+remotelab setup              Run interactive setup
+remotelab start              Start auth proxy + ttyd
+remotelab stop               Stop all services
+remotelab server             Run auth proxy in foreground
+remotelab generate-token     Generate a new access token
+remotelab --help             Show help
+remotelab --version          Show version
+```
 
 ## Configuration
-
-Port and session expiry can be overridden with environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LISTEN_PORT` | `7681` | Port auth-proxy listens on |
-| `TTYD_PORT` | `7682` | Port ttyd listens on |
-| `SESSION_EXPIRY` | `86400000` | Auth cookie lifetime in milliseconds (24 h) |
+| `TTYD_PORT_RANGE_START` | `7700` | Start of per-session ttyd port range |
+| `TTYD_PORT_RANGE_END` | `7799` | End of per-session ttyd port range |
+| `SESSION_EXPIRY` | `86400000` | Auth cookie lifetime in ms (24h) |
+| `SECURE_COOKIES` | `1` | Set to `0` for localhost (no HTTPS) |
 
-Copy `.env.example` to `.env` and edit as needed, then restart the auth-proxy service.
-
-## Usage
-
-### Start / stop services
-
-```bash
-remotelab start
-remotelab stop
-```
-
-Or if installed from source:
-
-```bash
-./start.sh
-./stop.sh
-```
-
-### Check status
-
-```bash
-launchctl list | grep -E 'ttyd|authproxy|cloudflared'
-lsof -i :7681   # auth-proxy
-lsof -i :7682   # ttyd
-```
-
-### View logs
+## View Logs
 
 ```bash
 tail -f ~/Library/Logs/auth-proxy.log
-tail -f ~/Library/Logs/ttyd-claude.log
+tail -f ~/Library/Logs/auth-proxy.error.log
 tail -f ~/Library/Logs/cloudflared.log
 ```
-
-### Change password
-
-```bash
-remotelab hash-password <username> <new-password>
-# Restarts auth-proxy automatically to pick up the new hash
-```
-
-### Session dashboard
-
-Navigate to your HTTPS URL after login. From the dashboard you can:
-
-- **Create a session** — enter a name and project folder path; autocomplete helps find directories
-- **Open a session** — click "Open" to launch the terminal in a new browser tab
-- **Delete a session** — kills the dtach process and removes the session entry
-
-## Security
-
-1. HTTPS encryption via Cloudflare edge
-2. scrypt-hashed passwords (salt stored separately in `~/.config/claude-web/auth.json`)
-3. HttpOnly, Secure, SameSite=Strict session cookies with configurable expiry
-4. Localhost-only service binding (only `cloudflared` can reach auth-proxy; only auth-proxy can reach ttyd)
-5. All routes except `/login` require an authenticated session cookie
 
 ## File Locations
 
 | Path | Description |
 |------|-------------|
+| `generate-token.mjs` | Token generation utility |
 | `auth-proxy.mjs` | Authentication proxy server |
-| `claude-ttyd-session` | dtach wrapper script |
-| `hash-password.mjs` | Password hashing utility |
-| `setup.sh` / `start.sh` / `stop.sh` | Service management scripts |
-| `~/.config/claude-web/auth.json` | Hashed credentials |
+| `claude-ttyd-session` | dtach wrapper script (zsh) |
+| `~/.config/claude-web/auth.json` | Access token |
+| `~/.config/claude-web/auth-sessions.json` | Active sessions |
 | `~/.config/claude-web/sessions.json` | Session metadata |
 | `~/.config/claude-web/sockets/` | dtach socket files |
 | `~/Library/LaunchAgents/com.authproxy.claude.plist` | auth-proxy service |
-| `~/Library/LaunchAgents/com.ttyd.claude.plist` | ttyd service |
 | `~/Library/LaunchAgents/com.cloudflared.tunnel.plist` | Cloudflare tunnel service |
 
-## Troubleshooting
+## Security
 
-**Login page not showing** — check `lsof -i :7681` and `tail -f ~/Library/Logs/auth-proxy.error.log`
-
-**Terminal not loading** — check `lsof -i :7682` and `tail -f ~/Library/Logs/ttyd-claude.error.log`; verify `which claude` returns a path
-
-**Tool shows "not installed" on the dashboard** — the service runs under launchd with a minimal PATH. Non-interactive login shells (`zsh -l`) source `~/.zprofile` and `~/.zshenv` but **not** `~/.zshrc`. If your tool is installed in a directory added to `PATH` only in `~/.zshrc` (e.g. `~/.local/bin` for `claude`), remotelab supplements the PATH with common locations automatically. If your tool is in a non-standard location, add it to `~/.zprofile` or `~/.zshenv` so it is visible to login shells, then restart with `remotelab restart`.
-
-**Tunnel unreachable** — check `cloudflared tunnel info <tunnel-name>` and `~/Library/Logs/cloudflared.error.log`
-
-**Session opens but shows wrong directory** — verify the folder still exists; the script falls back to `$HOME` if the path is missing
-
-See [INSTALL.md](INSTALL.md) for the full installation guide and [CONTRIBUTING.md](CONTRIBUTING.md) for development setup.
-
-## Cost
-
-- **Cloudflare**: free (tunnels are included in the free plan)
-- **Domain**: $1–12/year depending on TLD
-- **Hosting**: free (runs on your own machine)
-- **Claude API**: pay-per-use
-
-## Contributing
-
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Linux/systemd support is a particularly useful area where help is needed.
+1. HTTPS via Cloudflare Tunnel
+2. 256-bit random access token with timing-safe comparison
+3. HttpOnly, Secure, SameSite=Strict session cookies
+4. Per-IP rate limiting with exponential backoff
+5. Localhost-only service binding
+6. CSP headers with nonce-based script allowlist
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT

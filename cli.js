@@ -31,7 +31,7 @@ Usage:
   remotelab start                    Start auth proxy + ttyd
   remotelab stop                     Stop all services
   remotelab server                   Run auth proxy in foreground
-  remotelab hash-password <user> <pass>  Hash a password for config
+  remotelab generate-token           Generate a new access token
   remotelab --help                   Show this help message
   remotelab --version                Show version`);
 }
@@ -53,9 +53,9 @@ switch (command) {
     await import(scriptPath('auth-proxy.mjs'));
     break;
 
-  case 'hash-password': {
+  case 'generate-token': {
     try {
-      execFileSync('node', [scriptPath('hash-password.mjs'), ...args], { stdio: 'inherit' });
+      execFileSync('node', [scriptPath('generate-token.mjs')], { stdio: 'inherit' });
     } catch (err) {
       process.exit(err.status ?? 1);
     }
