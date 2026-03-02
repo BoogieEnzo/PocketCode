@@ -1,0 +1,225 @@
+import { spawn, execFileSync } from 'child_process';
+import { createInterface } from 'readline';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { dirname } from 'path';
+import { homedir } from 'os';
+import { join } from 'path';
+import { SIDEBAR_STATE_FILE } from '../lib/config.mjs';
+import { loadHistory } from './history.mjs';
+import { fullPath } from '../lib/tools.mjs';
+import { createClaudeAdapter } from './adapters/claude.mjs';
+
+function resolveClaudeCmd() {
+  const home = process.env.HOME || homedir();
+  const preferred = [
+    join(home, '.local', 'bin', 'claude'),
+    join(home, 'Library', 'pnpm', 'claude'),
+    '/opt/homebrew/bin/claude',
+    '/usr/local/bin/claude',
+  ];
+  for (const p of preferred) {
+    if (existsSync(p)) return p;
+  }
+  try {
+    return execFileSync('which', ['claude'], {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: fullPath },
+      timeout: 3000,
+    }).trim();
+  } catch {
+    return 'claude';
+  }
+}
+
+function loadSidebarState() {
+  try {
+    if (!existsSync(SIDEBAR_STATE_FILE)) return { sessions: {} };
+    return JSON.parse(readFileSync(SIDEBAR_STATE_FILE, 'utf8'));
+  } catch {
+    return { sessions: {} };
+  }
+}
+
+function saveSidebarState(state) {
+  const dir = dirname(SIDEBAR_STATE_FILE);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(SIDEBAR_STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+}
+
+/**
+ * Extract events belonging to the last turn (from the last user message onward).
+ */
+function extractLastTurn(events) {
+  let lastUserIdx = -1;
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].type === 'message' && events[i].role === 'user') {
+      lastUserIdx = i;
+      break;
+    }
+  }
+  return lastUserIdx === -1 ? events : events.slice(lastUserIdx);
+}
+
+/**
+ * Format the last turn's events into a concise text block for the LLM prompt.
+ * Skips reasoning/usage/status noise, caps lengths to keep context bounded.
+ */
+function formatTurnForPrompt(events) {
+  const lines = [];
+  for (const evt of events) {
+    switch (evt.type) {
+      case 'message':
+        if (evt.role === 'user') {
+          lines.push(`USER: ${(evt.content || '').slice(0, 400)}`);
+        } else if (evt.role === 'assistant') {
+          lines.push(`ASSISTANT: ${(evt.content || '').slice(0, 600)}`);
+        }
+        break;
+      case 'file_change':
+        lines.push(`FILE ${(evt.changeType || 'changed').toUpperCase()}: ${evt.filePath}`);
+        break;
+      case 'tool_use':
+        lines.push(`TOOL CALLED: ${evt.toolName}`);
+        break;
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Trigger a non-blocking summary generation after a session turn completes.
+ * sessionMeta: { id, folder, name }
+ */
+export function triggerSummary(sessionMeta) {
+  console.log(`[summarizer] triggerSummary called for session ${sessionMeta.id?.slice(0, 8)}`);
+  setImmediate(() => runSummary(sessionMeta).catch(err => {
+    console.error(`[summarizer] Unexpected error for ${sessionMeta.id?.slice(0, 8)}: ${err.message}`);
+  }));
+}
+
+async function runSummary(sessionMeta) {
+  const { id: sessionId, folder, name } = sessionMeta;
+
+  const allEvents = loadHistory(sessionId);
+  if (allEvents.length === 0) {
+    console.log(`[summarizer] Skipping ${sessionId.slice(0, 8)}: no history events`);
+    return;
+  }
+
+  const lastTurnEvents = extractLastTurn(allEvents);
+  const turnText = formatTurnForPrompt(lastTurnEvents);
+  if (!turnText.trim()) {
+    console.log(`[summarizer] Skipping ${sessionId.slice(0, 8)}: empty turn text (${lastTurnEvents.length} events)`);
+    return;
+  }
+
+  const state = loadSidebarState();
+  const prevBackground = state.sessions[sessionId]?.background || '';
+
+  const prompt = [
+    'You are updating a developer\'s session status board. Be extremely concise.',
+    '',
+    `Session folder: ${folder}`,
+    `Session name: ${name || '(unnamed)'}`,
+    prevBackground ? `Previous background: ${prevBackground}` : '',
+    '',
+    'Last turn:',
+    turnText,
+    '',
+    'Write a JSON object with exactly these two fields:',
+    '- "background": One sentence — what is this session working on overall? Update if this turn changes the focus.',
+    '- "lastAction": One sentence — the single most important thing that just happened.',
+    '',
+    'Respond with ONLY valid JSON. No markdown, no explanation.',
+  ].filter(l => l !== null).join('\n');
+
+  const claudeCmd = resolveClaudeCmd();
+  console.log(`[summarizer] Calling Claude CLI (${claudeCmd}) for session ${sessionId.slice(0, 8)}`);
+
+  const subEnv = { ...process.env, PATH: fullPath };
+  delete subEnv.CLAUDECODE;
+  delete subEnv.CLAUDE_CODE_ENTRYPOINT;
+
+  const modelText = await new Promise((resolve, reject) => {
+    const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions'];
+    const proc = spawn(claudeCmd, args, {
+      env: subEnv,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    proc.stdin.end();
+
+    const adapter = createClaudeAdapter();
+    const rl = createInterface({ input: proc.stdout });
+    const textParts = [];
+
+    rl.on('line', (line) => {
+      const events = adapter.parseLine(line);
+      for (const evt of events) {
+        if (evt.type === 'message' && evt.role === 'assistant') {
+          textParts.push(evt.content || '');
+        }
+      }
+    });
+
+    proc.stderr.on('data', (chunk) => {
+      const text = chunk.toString().trim();
+      if (text) console.log(`[summarizer] stderr: ${text.slice(0, 200)}`);
+    });
+
+    proc.on('error', (err) => {
+      console.error(`[summarizer] Claude CLI error for ${sessionId.slice(0, 8)}: ${err.message}`);
+      reject(err);
+    });
+
+    proc.on('exit', (code) => {
+      const remaining = adapter.flush();
+      for (const evt of remaining) {
+        if (evt.type === 'message' && evt.role === 'assistant') textParts.push(evt.content || '');
+      }
+      if (code !== 0 && textParts.length === 0) {
+        reject(new Error(`Claude exited with code ${code}`));
+      } else {
+        resolve(textParts.join(''));
+      }
+    });
+  });
+
+  // The model text itself should be a JSON object
+  let summary;
+  try {
+    summary = JSON.parse(modelText);
+  } catch {
+    // Try to extract JSON from the text if wrapped in backticks or similar
+    const jsonMatch = modelText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try { summary = JSON.parse(jsonMatch[0]); } catch { /* fall through */ }
+    }
+  }
+
+  if (!summary?.background || !summary?.lastAction) {
+    console.error(`[summarizer] Unexpected model output for ${sessionId.slice(0, 8)}: ${modelText.slice(0, 200)}`);
+    return;
+  }
+
+  state.sessions[sessionId] = {
+    name: name || '',
+    folder,
+    background: summary.background,
+    lastAction: summary.lastAction,
+    updatedAt: Date.now(),
+  };
+  saveSidebarState(state);
+  console.log(`[summarizer] Updated sidebar for session ${sessionId.slice(0, 8)}: ${summary.lastAction}`);
+}
+
+export function getSidebarState() {
+  return loadSidebarState();
+}
+
+export function removeSidebarEntry(sessionId) {
+  const state = loadSidebarState();
+  if (state.sessions[sessionId]) {
+    delete state.sessions[sessionId];
+    saveSidebarState(state);
+  }
+}

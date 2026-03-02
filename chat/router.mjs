@@ -10,6 +10,7 @@ import {
 } from '../lib/auth.mjs';
 import { getAvailableTools } from '../lib/tools.mjs';
 import { listSessions, getSession, createSession, deleteSession } from './session-manager.mjs';
+import { getSidebarState } from './summarizer.mjs';
 import { readBody } from '../lib/utils.mjs';
 import {
   getClientIp, isRateLimited, recordFailedAttempt, clearFailedAttempts,
@@ -164,6 +165,12 @@ p{color:#888}a{color:#60a5fa}</style></head>
     const tools = getAvailableTools();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ tools }));
+    return;
+  }
+
+  if (pathname === '/api/sidebar' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getSidebarState()));
     return;
   }
 

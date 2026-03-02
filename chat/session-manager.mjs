@@ -5,6 +5,7 @@ import { CHAT_SESSIONS_FILE, CHAT_IMAGES_DIR } from '../lib/config.mjs';
 import { spawnTool } from './process-runner.mjs';
 import { loadHistory, appendEvent } from './history.mjs';
 import { messageEvent, statusEvent } from './normalizer.mjs';
+import { triggerSummary, removeSidebarEntry } from './summarizer.mjs';
 
 const MIME_EXT = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp' };
 
@@ -100,6 +101,7 @@ export function deleteSession(id) {
   if (idx === -1) return false;
   metas.splice(idx, 1);
   saveSessionsMeta(metas);
+  removeSidebarEntry(id);
   return true;
 }
 
@@ -229,6 +231,8 @@ export function sendMessage(sessionId, text, images, options = {}) {
       type: 'session',
       session: { ...session, status: 'idle' },
     });
+    // Trigger async sidebar summary (non-blocking, does not affect session flow)
+    triggerSummary({ id: sessionId, folder: session.folder, name: session.name || '' });
   };
 
   const spawnOptions = {};
