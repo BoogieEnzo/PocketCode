@@ -180,13 +180,14 @@ export function sendMessage(sessionId, text, images, options = {}) {
     liveSessions.set(sessionId, live);
   }
 
-  console.log(`[session-mgr] live state: status=${live.status}, hasRunner=${!!live.runner}, claudeSessionId=${live.claudeSessionId || 'none'}, codexThreadId=${live.codexThreadId || 'none'}, listeners=${live.listeners.size}`);
+  console.log(`[session-mgr] live state: status=${live.status}, hasRunner=${!!live.runner}, claudeSessionId=${live.claudeSessionId || 'none'}, codexThreadId=${live.codexThreadId || 'none'}, opencodeSessionId=${live.opencodeSessionId || 'none'}, listeners=${live.listeners.size}`);
 
   // If tool was switched, clear resume IDs (they are tool-specific)
   if (effectiveTool !== session.tool) {
     console.log(`[session-mgr] Tool switched from ${session.tool} to ${effectiveTool}, clearing resume IDs`);
     live.claudeSessionId = undefined;
     live.codexThreadId = undefined;
+    live.opencodeSessionId = undefined;
   }
 
   // If a process is still running, cancel it (all modes are oneshot now)
@@ -198,6 +199,9 @@ export function sendMessage(sessionId, text, images, options = {}) {
     }
     if (live.runner.codexThreadId) {
       live.codexThreadId = live.runner.codexThreadId;
+    }
+    if (live.runner.opencodeSessionId) {
+      live.opencodeSessionId = live.runner.opencodeSessionId;
     }
     live.runner.cancel();
     live.runner = null;
@@ -225,6 +229,10 @@ export function sendMessage(sessionId, text, images, options = {}) {
         l.codexThreadId = l.runner.codexThreadId;
         console.log(`[session-mgr] Saved codexThreadId=${l.codexThreadId} for session ${sessionId.slice(0,8)}`);
       }
+      if (l.runner?.opencodeSessionId) {
+        l.opencodeSessionId = l.runner.opencodeSessionId;
+        console.log(`[session-mgr] Saved opencodeSessionId=${l.opencodeSessionId} for session ${sessionId.slice(0,8)}`);
+      }
       l.status = 'idle';
       l.runner = null;
     }
@@ -243,6 +251,7 @@ export function sendMessage(sessionId, text, images, options = {}) {
         const summary = match ? match[1].trim() : lastAssistant.content;
         l.claudeSessionId = undefined;
         l.codexThreadId = undefined;
+        l.opencodeSessionId = undefined;
         l.compactContext = `[Conversation summary]\n\n${summary}`;
       }
       const compactEvt = statusEvent('Context compacted — next message will resume from summary');
@@ -268,6 +277,10 @@ export function sendMessage(sessionId, text, images, options = {}) {
   if (live.codexThreadId) {
     spawnOptions.codexThreadId = live.codexThreadId;
     console.log(`[session-mgr] Will resume Codex thread: ${live.codexThreadId}`);
+  }
+  if (live.opencodeSessionId) {
+    spawnOptions.opencodeSessionId = live.opencodeSessionId;
+    console.log(`[session-mgr] Will resume OpenCode session: ${live.opencodeSessionId}`);
   }
 
   if (savedImages.length > 0) {

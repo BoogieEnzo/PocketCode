@@ -5,6 +5,7 @@ import { resolve, join } from 'path';
 import { createInterface } from 'readline';
 import { createClaudeAdapter, buildClaudeArgs } from './adapters/claude.mjs';
 import { createCodexAdapter, buildCodexArgs } from './adapters/codex.mjs';
+import { createOpencodeAdapter, buildOpencodeArgs } from './adapters/opencode.mjs';
 import { statusEvent } from './normalizer.mjs';
 import { getToolCommand, fullPath } from '../lib/tools.mjs';
 
@@ -24,6 +25,7 @@ function resolveCommand(cmd) {
   const isMac = process.platform === 'darwin';
   const preferred = [
     `${home}/.local/bin/${cmd}`,
+    `${home}/.opencode/bin/${cmd}`,
     // macOS-specific paths
     ...(isMac ? [
       `${home}/Library/pnpm/${cmd}`,
@@ -101,6 +103,7 @@ export function spawnTool(toolId, folder, prompt, onEvent, onExit, options = {})
   const command = getToolCommand(toolId);
   const isClaudeFamily = ['claude'].includes(toolId);
   const isCodexFamily = ['codex'].includes(toolId);
+  const isOpencode = ['opencode'].includes(toolId);
   const hasImages = options.images && options.images.length > 0;
 
   // For all tools: prepend image file paths to prompt
@@ -124,6 +127,13 @@ export function spawnTool(toolId, folder, prompt, onEvent, onExit, options = {})
       model: options.model,
       reasoningEffort: options.effort,
     });
+  } else if (isOpencode) {
+    adapter = createOpencodeAdapter();
+    args = buildOpencodeArgs(prompt, {
+      session: options.opencodeSessionId,
+      model: options.model,
+      images: hasImages ? options.images : undefined,
+    });
   } else {
     adapter = createClaudeAdapter();
     args = buildClaudeArgs(effectivePrompt, {
@@ -146,6 +156,7 @@ export function spawnTool(toolId, folder, prompt, onEvent, onExit, options = {})
     proc: null,
     capturedClaudeSessionId: null,
     capturedCodexThreadId: null,
+    capturedOpencodeSessionId: null,
     cancelled: false,
     autoContinueCount: 0,
   };
@@ -188,6 +199,10 @@ export function spawnTool(toolId, folder, prompt, onEvent, onExit, options = {})
         if (isCodexFamily && !state.capturedCodexThreadId && obj.type === 'thread.started' && obj.thread_id) {
           state.capturedCodexThreadId = obj.thread_id;
           console.log(`${TAG} Captured Codex thread_id: ${state.capturedCodexThreadId}`);
+        }
+        if (isOpencode && !state.capturedOpencodeSessionId && obj.sessionID) {
+          state.capturedOpencodeSessionId = obj.sessionID;
+          console.log(`${TAG} Captured OpenCode sessionID: ${state.capturedOpencodeSessionId}`);
         }
 
         // Track what this turn actually did
@@ -266,6 +281,7 @@ export function spawnTool(toolId, folder, prompt, onEvent, onExit, options = {})
     toolId,
     get claudeSessionId() { return state.capturedClaudeSessionId; },
     get codexThreadId() { return state.capturedCodexThreadId; },
+    get opencodeSessionId() { return state.capturedOpencodeSessionId; },
     cancel() {
       state.cancelled = true;
       console.log(`${TAG} Killing process pid=${state.proc?.pid}`);
