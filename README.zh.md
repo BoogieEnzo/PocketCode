@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-用手机浏览器远程控制 Mac 上的 AI 编程工具（Claude Code、Codex、Cline）——无需 SSH，无需 VPN，只要一个浏览器。
+用手机浏览器远程控制 Mac 或 Linux 服务器上的 AI 编程工具（Claude Code、Codex、Cline）——无需 SSH，无需 VPN，只要一个浏览器。
 
 ![Chat UI](docs/demo.gif)
 
@@ -12,16 +12,16 @@
 
 ### 它能做什么
 
-RemoteLab 在你的 Mac 上运行一个轻量级 Web 服务器。配合 Cloudflare Tunnel 得到一个 HTTPS 地址，之后在任意浏览器（手机、平板、随便什么设备）打开，就能和运行在 Mac 上的 Claude Code 对话。
+RemoteLab 在你的 Mac 或 Linux 服务器上运行一个轻量级 Web 服务器。配合 Cloudflare Tunnel 得到一个 HTTPS 地址，之后在任意浏览器（手机、平板、随便什么设备）打开，就能和运行在服务器上的 Claude Code 对话。
 
 会话断开后依然保活。历史记录存到磁盘。多个文件夹、多个会话可以并行运行。
 
 ### 5 分钟配置完成——直接交给 AI
 
-最快的方式：把下面的 prompt 粘贴到 Mac 上的 Claude Code，让 AI 全程自动完成配置。唯一需要你手动操作的是 Cloudflare 的浏览器登录（没法绕过，他们要确认你拥有这个域名）。
+最快的方式：把下面的 prompt 粘贴到 Mac 或 Linux 上的 Claude Code，让 AI 全程自动完成配置。唯一需要你手动操作的是 Cloudflare 的浏览器登录（没法绕过，他们要确认你拥有这个域名）。
 
 **粘贴前的前置条件：**
-- 已安装 Homebrew 的 macOS
+- macOS（已安装 Homebrew）或 Linux
 - Node.js 18+
 - 至少安装了一个 AI 工具（`claude`、`codex`）
 - 域名已接入 Cloudflare（[免费注册](https://cloudflare.com)，域名约 ¥10–90/年，可从 Namecheap 或 Porkbun 购买）
@@ -31,7 +31,7 @@ RemoteLab 在你的 Mac 上运行一个轻量级 Web 服务器。配合 Cloudfla
 **把这段 prompt 粘贴到 Claude Code：**
 
 ```
-我想在这台 Mac 上配置 RemoteLab，这样我就能用手机远程控制 AI 编程工具了。
+我想在这台 Mac/Linux 服务器上配置 RemoteLab，这样我就能用手机远程控制 AI 编程工具了。
 
 我的域名：[YOUR_DOMAIN]（例如 example.com）
 我想用的子域名：[SUBDOMAIN]（例如 chat，会创建 chat.example.com）
@@ -58,7 +58,7 @@ RemoteLab 在你的 Mac 上运行一个轻量级 Web 服务器。配合 Cloudfla
 
 ### 日常使用
 
-配置完成后，服务会在 Mac 开机时自动启动，直接在手机上打开网址就能用。
+配置完成后，服务会在开机时自动启动（macOS LaunchAgent / Linux systemd），直接在手机上打开网址就能用。
 
 ```
 remotelab start          # 启动所有服务
@@ -70,7 +70,7 @@ remotelab restart chat   # 只重启 chat server
 
 ## 架构
 
-两个服务在你的 Mac 上运行，隐藏在 Cloudflare Tunnel 后面：
+两个服务在你的 Mac 或 Linux 服务器上运行，隐藏在 Cloudflare Tunnel 后面：
 
 | 服务 | 端口 | 职责 |
 |------|------|------|
@@ -124,26 +124,33 @@ remotelab --help               显示帮助
 | `~/.config/claude-web/auth.json` | 访问 token + 密码哈希 |
 | `~/.config/claude-web/chat-sessions.json` | Chat 会话元数据 |
 | `~/.config/claude-web/chat-history/` | 每个会话的事件日志（JSONL） |
-| `~/Library/Logs/chat-server.log` | Chat server 标准输出 |
-| `~/Library/Logs/auth-proxy.log` | Auth proxy 标准输出 |
-| `~/Library/Logs/cloudflared.log` | Tunnel 标准输出 |
+| `~/Library/Logs/chat-server.log` | Chat server 标准输出 **(macOS)** |
+| `~/Library/Logs/auth-proxy.log` | Auth proxy 标准输出 **(macOS)** |
+| `~/Library/Logs/cloudflared.log` | Tunnel 标准输出 **(macOS)** |
+| `~/.local/share/remotelab/logs/chat-server.log` | Chat server 标准输出 **(Linux)** |
+| `~/.local/share/remotelab/logs/auth-proxy.log` | Auth proxy 标准输出 **(Linux)** |
+| `~/.local/share/remotelab/logs/cloudflared.log` | Tunnel 标准输出 **(Linux)** |
 
 ## 安全
 
-- 通过 Cloudflare 提供 HTTPS（边缘 TLS，Mac 侧是本地 HTTP）
+- 通过 Cloudflare 提供 HTTPS（边缘 TLS，服务器侧是本地 HTTP）
 - 256 位随机访问 token，时序安全比较
 - 可选 scrypt 哈希密码登录
 - HttpOnly + Secure + SameSite=Strict session cookie，24h 过期
 - 登录失败按 IP 限流，指数退避
-- Mac 服务只绑定 127.0.0.1，不直接对外暴露
+- 服务只绑定 127.0.0.1，不直接对外暴露
 - CSP 头 + nonce-based script 白名单
 
 ## 故障排查
 
 **服务启动失败：**
 ```bash
+# macOS
 tail -50 ~/Library/Logs/chat-server.error.log
 tail -50 ~/Library/Logs/auth-proxy.error.log
+# Linux
+journalctl --user -u remotelab-chat -n 50
+tail -50 ~/.local/share/remotelab/logs/chat-server.error.log
 ```
 
 **DNS 解析不了：** 配置完成后等 5–30 分钟。验证：`dig SUBDOMAIN.DOMAIN +short`
