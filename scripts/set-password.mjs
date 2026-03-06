@@ -3,7 +3,7 @@ import { createInterface } from 'readline';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { join, dirname } from 'path';
-import { hashPassword } from './lib/auth.mjs';
+import { hashPassword } from '../lib/auth.mjs';
 
 const authFile = join(homedir(), '.config', 'claude-web', 'auth.json');
 const authDir = dirname(authFile);

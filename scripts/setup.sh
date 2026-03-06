@@ -2,6 +2,7 @@
 set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 
 # Colors for output
 RED='\033[0;31m'
@@ -352,7 +353,7 @@ fi
 
 # Create dtach wrapper script
 print_info "Creating dtach wrapper script..."
-cp "$SCRIPT_DIR/claude-ttyd-session" "$HOME/.local/bin/claude-ttyd-session"
+cp "$PROJECT_DIR/scripts/claude-ttyd-session" "$HOME/.local/bin/claude-ttyd-session"
 chmod +x "$HOME/.local/bin/claude-ttyd-session"
 print_success "Created: ~/.local/bin/claude-ttyd-session"
 
@@ -394,7 +395,7 @@ if [[ "$OS_TYPE" == "macos" ]]; then
         <string>/usr/bin/caffeinate</string>
         <string>-s</string>
         <string>$(which node)</string>
-        <string>$SCRIPT_DIR/auth-proxy.mjs</string>
+        <string>$PROJECT_DIR/auth-proxy.mjs</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -421,7 +422,7 @@ EOF
     <key>ProgramArguments</key>
     <array>
         <string>$(which node)</string>
-        <string>$SCRIPT_DIR/auth-proxy.mjs</string>
+        <string>$PROJECT_DIR/auth-proxy.mjs</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
@@ -460,7 +461,7 @@ EOF
         <string>/usr/bin/caffeinate</string>
         <string>-s</string>
         <string>$(which node)</string>
-        <string>$SCRIPT_DIR/chat-server.mjs</string>
+        <string>$PROJECT_DIR/chat-server.mjs</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -487,7 +488,7 @@ EOF
     <key>ProgramArguments</key>
     <array>
         <string>$(which node)</string>
-        <string>$SCRIPT_DIR/chat-server.mjs</string>
+        <string>$PROJECT_DIR/chat-server.mjs</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
@@ -600,7 +601,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=$USER_HOME
-ExecStart=$NODE_BIN $SCRIPT_DIR/chat-server.mjs
+ExecStart=$NODE_BIN $PROJECT_DIR/chat-server.mjs
 Restart=always
 RestartSec=5
 StandardOutput=append:$LOG_DIR/chat-server.log
@@ -619,7 +620,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=$USER_HOME
-ExecStart=$NODE_BIN $SCRIPT_DIR/chat-server.mjs
+ExecStart=$NODE_BIN $PROJECT_DIR/chat-server.mjs
 Restart=always
 RestartSec=5
 StandardOutput=append:$LOG_DIR/chat-server.log
@@ -644,7 +645,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=$USER_HOME
-ExecStart=$NODE_BIN $SCRIPT_DIR/auth-proxy.mjs
+ExecStart=$NODE_BIN $PROJECT_DIR/auth-proxy.mjs
 Restart=always
 RestartSec=5
 StandardOutput=append:$LOG_DIR/auth-proxy.log
@@ -663,7 +664,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=$USER_HOME
-ExecStart=$NODE_BIN $SCRIPT_DIR/auth-proxy.mjs
+ExecStart=$NODE_BIN $PROJECT_DIR/auth-proxy.mjs
 Restart=always
 RestartSec=5
 StandardOutput=append:$LOG_DIR/auth-proxy.log

@@ -13,6 +13,7 @@
   const newSessionModal = document.getElementById("newSessionModal");
   const toolSelect = document.getElementById("toolSelect");
   const cancelModal = document.getElementById("cancelModal");
+  const createSessionHint = document.getElementById("createSessionHint");
   const createSessionBtn = document.getElementById("createSession");
   const messagesEl = document.getElementById("messages");
   const messagesInner = document.getElementById("messagesInner");
@@ -924,6 +925,8 @@
   // ---- New Session Modal ----
   newSessionBtn.addEventListener("click", () => {
     if (!isDesktop) closeSidebarFn();
+    createSessionHint.textContent = "";
+    createSessionHint.classList.remove("error");
     newSessionModal.classList.add("open");
     loadTools();
   });
@@ -936,9 +939,22 @@
   });
 
   createSessionBtn.addEventListener("click", () => {
-    const tool = toolSelect.value;
+    createSessionHint.textContent = "";
+    createSessionHint.classList.remove("error");
+
+    const tool = (toolSelect.value || "").trim();
+    if (!tool) {
+      createSessionHint.textContent = "Please select a tool.";
+      createSessionHint.classList.add("error");
+      return;
+    }
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      createSessionHint.textContent = "Connection lost. Please wait for reconnecting…";
+      createSessionHint.classList.add("error");
+      return;
+    }
+
     wsSend({ action: "create", tool });
-    newSessionModal.classList.remove("open");
 
     const handler = (e) => {
       let msg;
@@ -949,8 +965,13 @@
       }
       if (msg.type === "session" && msg.session) {
         ws.removeEventListener("message", handler);
+        newSessionModal.classList.remove("open");
         attachSession(msg.session.id, msg.session);
         wsSend({ action: "list" });
+      }
+      if (msg.type === "error") {
+        createSessionHint.textContent = msg.message || "Create failed.";
+        createSessionHint.classList.add("error");
       }
     };
     ws.addEventListener("message", handler);

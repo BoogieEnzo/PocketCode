@@ -43,11 +43,7 @@
     "cli.js",
     "auth-proxy.mjs",
     "chat-server.mjs",
-    "generate-token.mjs",
-    "setup.sh",
-    "start.sh",
-    "stop.sh",
-    "claude-ttyd-session",
+    "scripts/",
     "lib/",
     "chat/",
     "templates/",
@@ -59,10 +55,10 @@
   "scripts": {
     "start": "node auth-proxy.mjs",
     "chat": "node chat-server.mjs",
-    "stop": "./stop.sh",
-    "setup": "./setup.sh",
-    "generate-token": "node generate-token.mjs",
-    "prepublishOnly": "chmod +x cli.js setup.sh start.sh stop.sh claude-ttyd-session"
+    "stop": "./scripts/stop.sh",
+    "setup": "./scripts/setup.sh",
+    "generate-token": "node scripts/generate-token.mjs",
+    "prepublishOnly": "chmod +x cli.js scripts/setup.sh scripts/start.sh scripts/stop.sh scripts/claude-ttyd-session"
   },
   "dependencies": {
     "web-push": "^3.6.7",

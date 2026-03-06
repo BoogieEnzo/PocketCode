@@ -2,95 +2,59 @@
 
 [中文](README.zh.md) | English
 
-Control AI coding tools (Claude Code, Codex, Cline) from your phone mac or any other device! — no SSH, no VPN, just a browser.
+**Use your phone or any browser to control OpenCode, Claude Code, Codex, and Cline on your Mac or Linux.** One HTTPS link, no SSH or VPN — chat, sessions, and history from anywhere.
+
+**Highlights:** One link from your phone, no SSH · Sessions survive disconnect, history on disk · Multiple sessions in parallel, multiple folders and tools · OpenCode, Claude Code, Codex, Cline supported
 
 ![Chat UI](docs/demo.gif)
 
 ---
 
-## For Humans
+## Quick start
 
 ### What it does
 
-RemoteLab runs a lightweight web server on your **Mac or Linux server**. You point a Cloudflare tunnel at it, get an HTTPS URL, and from any browser (phone, tablet, whatever) you can open a chat interface that talks to Claude Code running on your machine.
+RemoteLab runs a web server on your **Mac or Linux** machine. Add a Cloudflare tunnel, get an HTTPS URL, then open it from any browser to chat with Claude Code (or Codex, Cline) on that machine. Sessions survive disconnects; history is saved; multiple folders and sessions run in parallel.
 
-Your sessions persist across disconnects. History is kept on disk. Multiple folders, multiple sessions, running in parallel.
+### 5-minute setup (let AI do it)
 
-### Get set up in 5 minutes — hand it to an AI
+Paste the prompt below into Claude Code on your server. The AI will run the setup; you only need to complete one Cloudflare browser login (to prove you own the domain).
 
-The fastest way to set this up is to paste the following prompt into Claude Code on your Mac or Linux server. The AI handles everything automatically. The only thing it'll stop and ask you for is a browser login to Cloudflare (unavoidable — they need to confirm you own the domain).
+**Before you start:** macOS (Homebrew + Node.js 18+) or Linux (Node.js 18+; wizard can install `dtach`/`ttyd`) · One AI tool installed (`claude`, `codex`, or `cline`) · A domain on Cloudflare ([free](https://cloudflare.com); domain ~$1–12/yr).
 
-**Prerequisites before you paste the prompt:**
-- **macOS**: Homebrew installed + Node.js 18+
-- **Linux**: Node.js 18+ + `dtach` + `ttyd` (the setup wizard can install these automatically)
-- At least one AI tool installed (`claude`, `codex`, `cline`, …)
-- A domain pointed at Cloudflare ([free account](https://cloudflare.com), domain ~$1–12/yr from Namecheap or Porkbun)
-
----
-
-**Copy this prompt into Claude Code:**
+**Paste into Claude Code:**
 
 ```
 I want to set up RemoteLab on this Mac so I can control AI coding tools from my phone.
 
 My domain: [YOUR_DOMAIN]          (e.g. example.com)
-Subdomain I want to use: [SUBDOMAIN]  (e.g. chat — will create chat.example.com)
+Subdomain I want to use: [SUBDOMAIN]  (e.g. chat → chat.example.com)
 
-Please follow the full setup guide at docs/setup.md in this repository.
-Do every step you can automatically. When you hit a [HUMAN] step, stop and tell me exactly what to do.
-After I confirm each manual step, continue to the next phase.
+Follow docs/setup.md in this repo. Do every step automatically; at [HUMAN] steps, stop and tell me what to do. Continue after I confirm.
 ```
-
-Fill in your domain and subdomain, paste it, and follow the AI's instructions. You'll click through one Cloudflare browser login. Everything else is automated.
 
 ---
 
-### What you'll have when done
+### After setup
 
-Open `https://[subdomain].[domain]/?token=YOUR_TOKEN` on your phone:
+Open `https://[subdomain].[domain]/?token=YOUR_TOKEN` (e.g. on your phone): create sessions (folder + AI tool), send messages (streaming), paste screenshots. Close the tab and return later — the session is still there.
 
 ![Dashboard](docs/new-dashboard.png)
 
-- Create a session: pick a folder + AI tool
-- Send messages — responses stream back in real time
-- Close the browser, come back later — session is still alive
-- Paste screenshots directly into the chat
+**Get your access URL and test:** run `node cli.js generate-token` (or `remotelab generate-token` if CLI is global). The token is written to `~/.config/claude-web/auth.json`; the command prints an **Access URL** — open it in a browser to confirm login and chat work.
 
-### Daily usage
-
-Once set up, the service auto-starts on boot (macOS LaunchAgent / Linux systemd). Just open the URL on your phone.
-
-```
-remotelab start          # start all services
-remotelab stop           # stop all services
-remotelab restart chat   # restart just the chat server
-```
+**Daily:** Services auto-start on boot. Use `remotelab start` / `remotelab stop` / `remotelab restart chat` when needed.
 
 ---
 
 ## Architecture
 
-Two services run on your Mac behind a Cloudflare tunnel:
-
 | Service | Port | Role |
 |---------|------|------|
-| `chat-server.mjs` | 7690 | **Primary.** Chat UI, spawns CLI tools, WebSocket streaming |
-| `auth-proxy.mjs` | 7681 | **Fallback.** Raw terminal via ttyd — for emergencies only |
+| `chat-server.mjs` | 7690 | **Main.** Chat UI, runs CLI tools, WebSocket streaming |
+| `auth-proxy.mjs` | 7681 | **Fallback.** Raw terminal (ttyd) — emergency only |
 
-The Cloudflare tunnel routes your domain to the chat server (7690). The auth-proxy is localhost-only — if chat breaks badly enough, you SSH in and hit it directly.
-
-```
-Phone ──HTTPS──→ Cloudflare Tunnel ──→ chat-server :7690
-                                              │
-                                        spawns subprocess
-                                        (claude / codex / cline)
-                                              │
-                                        streams events → WebSocket → browser
-```
-
-### Session persistence
-
-Each chat session is a subprocess. When you disconnect, the process keeps running. When you reconnect, the server replays history and reattaches to the live stream.
+Tunnel → chat server. Each chat session is a subprocess; disconnect and it keeps running; reconnect and you get history + live stream again.
 
 ---
 
@@ -131,42 +95,13 @@ remotelab --help               Show help
 
 ## Security
 
-- HTTPS via Cloudflare (TLS at edge, Mac-side is localhost HTTP)
-- 256-bit random access token, timing-safe comparison
-- Optional scrypt-hashed password login
-- HttpOnly + Secure + SameSite=Strict session cookies, 24h expiry
-- Per-IP rate limiting with exponential backoff on failed login
-- Mac server binds to 127.0.0.1 only — no direct external exposure
-- CSP headers with nonce-based script allowlist
+HTTPS via Cloudflare; 256-bit token (or optional password); secure cookies; rate limiting on failed login. Server listens on 127.0.0.1 only.
 
 ## Troubleshooting
 
-**Service won't start (macOS):**
-```bash
-tail -50 ~/Library/Logs/chat-server.error.log
-tail -50 ~/Library/Logs/auth-proxy.error.log
-```
-
-**Service won't start (Linux):**
-```bash
-journalctl --user -u remotelab-chat -n 50
-tail -50 ~/.local/share/remotelab/logs/chat-server.error.log
-```
-
-**DNS not resolving:** Wait 5–30 minutes after setup. Verify: `dig SUBDOMAIN.DOMAIN +short`
-
-**Port already in use:**
-```bash
-lsof -i :7690   # chat server
-lsof -i :7681   # auth proxy
-```
-
-**Restart a single service:**
-```bash
-remotelab restart chat
-remotelab restart proxy
-remotelab restart tunnel
-```
+- **Won't start:** macOS: `tail -50 ~/Library/Logs/chat-server.error.log` · Linux: `journalctl --user -u remotelab-chat -n 50`
+- **DNS:** Wait 5–30 min after setup; check with `dig SUBDOMAIN.DOMAIN +short`
+- **Port in use:** `lsof -i :7690` or `:7681` · then `remotelab restart chat` or `remotelab restart proxy`
 
 ---
 

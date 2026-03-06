@@ -2,7 +2,7 @@
 
 ## 产品定位
 
-RemoteLab 是一个让用户通过手机浏览器远程操控 macOS/Linux 上 AI 编程工具（Claude Code、Copilot、Codex 等）的 Web 应用。核心场景是：用户不在电脑前，但想用手机指挥 AI 帮忙写代码、处理任务。
+RemoteLab 是一个让用户通过手机浏览器远程操控 macOS/Linux 上 AI 编程工具的 Web 应用，**适配 OpenCode、Claude Code、Codex、Cline**。核心场景是：用户不在电脑前，但想用手机指挥 AI 帮忙写代码、处理任务。
 
 **目标用户**：有 macOS 或 Linux 开发机/服务器的程序员，需要在移动端（通勤、外出）远程控制 AI 编程工具。
 
@@ -19,7 +19,7 @@ RemoteLab 是一个让用户通过手机浏览器远程操控 macOS/Linux 上 AI
                                           │       │       │
                                        dtach    dtach   dtach  (会话持久化)
                                           │       │       │
-                                       claude  copilot  codex  (实际 CLI 工具)
+                                       opencode / claude / codex / cline  (实际 CLI 工具)
 ```
 
 ### 核心组件
@@ -34,7 +34,7 @@ RemoteLab 是一个让用户通过手机浏览器远程操控 macOS/Linux 上 AI
 | `lib/tools.mjs` | CLI 工具发现（which）、自定义工具注册 |
 | `lib/config.mjs` | 端口、超时等环境变量配置 |
 | `lib/templates.mjs` | HTML 模板加载 |
-| `claude-ttyd-session` | zsh 脚本，ttyd 的 wrapper，负责 source 环境变量 → cd 工作目录 → dtach 启动工具 |
+| `scripts/claude-ttyd-session` | shell 脚本，ttyd 的 wrapper，负责 source 环境变量 → cd 工作目录 → dtach 启动工具 |
 
 ### 数据流
 

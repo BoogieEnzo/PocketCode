@@ -263,6 +263,8 @@ body {
   border-radius: 8px; color: var(--text); font-size: 14px; outline: none; font-family: inherit;
 }
 .modal input:focus, .modal select:focus { border-color: var(--border-strong); background: var(--bg); }
+.modal-hint { margin: 10px 0 0; font-size: 13px; color: var(--text-secondary); min-height: 1.2em; }
+.modal-hint.error { color: var(--danger, #c00); }
 .modal-actions { display: flex; gap: 8px; margin-top: 22px; }
 .modal-actions button {
   flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 14px;
@@ -719,6 +721,7 @@ body {
     <h3>New Session</h3>
     <label>Tool</label>
     <select id="toolSelect"></select>
+    <p class="modal-hint" id="createSessionHint" aria-live="polite"></p>
     <div class="modal-actions">
       <button class="btn-cancel" id="cancelModal">Cancel</button>
       <button class="btn-create" id="createSession">Create</button>

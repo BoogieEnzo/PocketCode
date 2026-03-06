@@ -41,21 +41,21 @@ Usage:
 
 switch (command) {
   case 'setup':
-    runShell('setup.sh');
+    runShell('scripts/setup.sh');
     break;
 
   case 'start':
-    runShell('start.sh');
+    runShell('scripts/start.sh');
     break;
 
   case 'stop':
-    runShell('stop.sh');
+    runShell('scripts/stop.sh');
     break;
 
   case 'restart': {
     const service = args[0] || 'all';
     try {
-      execFileSync('bash', [scriptPath('restart.sh'), service], { stdio: 'inherit' });
+      execFileSync('bash', [scriptPath('scripts/restart.sh'), service], { stdio: 'inherit' });
     } catch (err) {
       process.exit(err.status ?? 1);
     }
@@ -72,7 +72,7 @@ switch (command) {
 
   case 'generate-token': {
     try {
-      execFileSync('node', [scriptPath('generate-token.mjs')], { stdio: 'inherit' });
+      execFileSync('node', [scriptPath('scripts/generate-token.mjs')], { stdio: 'inherit' });
     } catch (err) {
       process.exit(err.status ?? 1);
     }
@@ -80,7 +80,7 @@ switch (command) {
   }
 
   case 'set-password': {
-    await import(scriptPath('set-password.mjs'));
+    await import(scriptPath('scripts/set-password.mjs'));
     break;
   }
 
