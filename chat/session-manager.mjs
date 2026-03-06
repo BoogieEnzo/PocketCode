@@ -291,6 +291,13 @@ export function sendMessage(sessionId, text, images, options = {}) {
   }
   if (options.model) {
     spawnOptions.model = options.model;
+  } else if (effectiveTool === 'opencode') {
+    // Default OpenCode model: prefer env override, fall back to GLM coding plan.
+    // This avoids relying on OpenCode's internal default, which may point to a
+    // non-existent or unavailable model (e.g. opencode/kimi-k2.5-free).
+    const defaultOpencodeModel =
+      process.env.OPENCODE_DEFAULT_MODEL || 'zhipuai-coding-plan/glm-4.7';
+    spawnOptions.model = defaultOpencodeModel;
   }
   if (options.effort) {
     spawnOptions.effort = options.effort;
@@ -303,7 +310,10 @@ export function sendMessage(sessionId, text, images, options = {}) {
     live.compactContext = undefined;
   }
 
-  console.log(`[session-mgr] Spawning tool=${effectiveTool} model=${options.model || 'default'} effort=${options.effort || 'default'} thinking=${!!options.thinking}`);
+  const logModel = spawnOptions.model || options.model || 'default';
+  console.log(
+    `[session-mgr] Spawning tool=${effectiveTool} model=${logModel} effort=${options.effort || 'default'} thinking=${!!options.thinking}`,
+  );
   const runner = spawnTool(effectiveTool, session.folder, actualText, onEvent, onExit, spawnOptions);
   live.runner = runner;
 }
