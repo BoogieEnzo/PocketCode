@@ -46,6 +46,8 @@ RemoteLab 在你的 **Mac 或 Linux** 上跑一个 Web 服务，配上 Cloudflar
 
 **日常：** 服务开机自启。需要时用 `remotelab start` / `remotelab stop` / `remotelab restart chat`。
 
+**手动启动 Chat 服务（服务被停掉或调试时）：** 进入项目目录执行 `node chat-server.mjs`（默认监听 7690）。然后打开你的访问地址（即 Tunnel 对应的 HTTPS，例如 `https://chat.enzoding.com`）。首次访问需在地址后加 `?token=你的token`，用 `node cli.js generate-token` 可生成并打印 Access URL；登录过一次后浏览器会记住，之后直接打开该网址即可，不必再带 token。
+
 ---
 
 ## 架构
