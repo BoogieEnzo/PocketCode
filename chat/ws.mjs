@@ -177,6 +177,8 @@ function handleMessage(ws, msg, ctx) {
         return;
       }
       if (ocLive.isBridgeSession(sessionId)) {
+        // Bridge mode: defer model selection to OpenCode session itself.
+        // This keeps /models choice in OpenCode TUI authoritative.
         ocLive.send(sessionId, msg.text.trim()).catch(err => {
           wsSend(ws, { type: 'error', message: 'OpenCode send failed: ' + err.message });
         });

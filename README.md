@@ -51,9 +51,10 @@ Open `https://[subdomain].[domain]/?token=YOUR_TOKEN` (e.g. on your phone): crea
 
 You run OpenCode on the server (SSH + TUI) and want to **see progress and send messages** from your phone. Use **Connect OpenCode**.
 
-1. **On the server:** start OpenCode’s HTTP API: `opencode serve --port 4096` (or 4097; avoid port conflicts).
-2. **On your phone:** open your Chat URL (e.g. `https://chat.example.com`), tap **🔗 Connect OpenCode**, enter `http://SERVER_IP:4096` (use `http://127.0.0.1:4096` if Chat runs on the same machine), tap Connect.
-3. After connecting, an **OpenCode Server** group appears in the sidebar. Tap any session to view history, get live updates, and send messages. Use `opencode attach http://127.0.0.1:4096` on the server for the TUI; it shares the same sessions.
+1. **Stable start (recommended):** `systemctl --user start opencode-serve` (fixed to port 4096, can auto-start on boot).
+2. **Bypass proxy only for localhost:** use `NO_PROXY=127.0.0.1,localhost` for local calls. External requests still use your proxy.
+3. **On your phone:** open your Chat URL (e.g. `https://chat.example.com`), tap **🔗 Connect OpenCode**, enter `http://SERVER_IP:4096` (or `http://127.0.0.1:4096` when on the same machine), tap Connect.
+4. After connecting, an **OpenCode Server** group appears in the sidebar (**latest 10 sessions only**). Tap any session to view history, get live updates, and send messages. Use `opencode attach http://127.0.0.1:4096` on the server for the TUI; it shares the same sessions.
 
 ---
 

@@ -60,10 +60,14 @@ export async function getMessages(baseUrl, sessionId, limit) {
   return Array.isArray(data) ? data : [];
 }
 
-export async function sendMessageAsync(baseUrl, sessionId, text) {
+export async function sendMessageAsync(baseUrl, sessionId, text, options = {}) {
+  const body = { parts: [{ type: 'text', text }] };
+  if (options.model) body.model = options.model;
+  if (options.agent) body.agent = options.agent;
+
   const { status } = await request(baseUrl, `/session/${sessionId}/prompt_async`, {
     method: 'POST',
-    body: { parts: [{ type: 'text', text }] },
+    body,
   });
   return status === 204 || status === 200;
 }

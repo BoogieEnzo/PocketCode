@@ -52,9 +52,10 @@ RemoteLab 在你的 **Mac 或 Linux** 上跑一个 Web 服务，配上 Cloudflar
 
 你在服务器上跑 OpenCode（SSH + TUI），想在手机浏览器里**实时看进度、还能发消息**，用「Connect OpenCode」即可。
 
-1. **服务器上** 起 OpenCode 的 HTTP 服务：`opencode serve --port 4096`（或 4097，端口别冲突）。
-2. **手机** 打开你的 Chat 地址（如 `https://chat.enzoding.com`），侧边栏点 **🔗 Connect OpenCode**，填 `http://服务器IP:4096`（本机填 `http://127.0.0.1:4096`），点 Connect。
-3. 连接成功后侧边栏会出现 **OpenCode Server** 分组，点任意会话即可看历史、收实时流、发消息。Mac/服务器上的 TUI 用 `opencode attach http://127.0.0.1:4096` 连同一服务，两边看到的会话一致。
+1. **稳定启动（推荐）**：`systemctl --user start opencode-serve`（已固定为 4096 端口，开机可自启）。
+2. **直连本机，不关闭翻墙代理**：只对本机绕过代理即可（`NO_PROXY=127.0.0.1,localhost`）。外网请求仍走你的代理。
+3. **手机** 打开你的 Chat 地址（如 `https://chat.enzoding.com`），侧边栏点 **🔗 Connect OpenCode**，填 `http://服务器IP:4096`（同机可填 `http://127.0.0.1:4096`），点 Connect。
+4. 连接成功后侧边栏会出现 **OpenCode Server** 分组（仅显示最近 10 条会话），点任意会话即可看历史、收实时流、发消息。服务器上的 TUI 用 `opencode attach http://127.0.0.1:4096` 连同一服务，两边会话一致。
 
 ---
 
