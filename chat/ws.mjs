@@ -5,6 +5,7 @@ import {
   subscribe, unsubscribe, sendMessage, cancelSession, getHistory,
   renameSession, compactSession, dropToolUse,
 } from './session-manager.mjs';
+import * as ocLive from './opencode-live.mjs';
 
 /**
  * Attach WebSocket handling to an HTTP server.
@@ -61,7 +62,11 @@ export function attachWebSocket(server) {
     ws.on('close', () => {
       console.log(`[ws] Client disconnected (was attached to ${attachedSessionId?.slice(0,8) || 'none'})`);
       if (attachedSessionId) {
-        unsubscribe(attachedSessionId, ws);
+        if (ocLive.isBridgeSession(attachedSessionId)) {
+          ocLive.unsubscribe(attachedSessionId, ws);
+        } else {
+          unsubscribe(attachedSessionId, ws);
+        }
       }
     });
   });
@@ -79,7 +84,8 @@ function handleMessage(ws, msg, ctx) {
   switch (msg.action) {
     case 'list': {
       const sessions = listSessions();
-      wsSend(ws, { type: 'sessions', sessions });
+      const bridgeSessions = ocLive.isConnected() ? ocLive.getCachedSessions() : [];
+      wsSend(ws, { type: 'sessions', sessions: [...sessions, ...bridgeSessions] });
       break;
     }
 
@@ -127,19 +133,36 @@ function handleMessage(ws, msg, ctx) {
       }
       // Detach from previous session
       const prev = ctx.getAttached();
-      if (prev) unsubscribe(prev, ws);
-
-      ctx.setAttached(msg.sessionId);
-      subscribe(msg.sessionId, ws);
-
-      const session = getSession(msg.sessionId);
-      if (session) {
-        wsSend(ws, { type: 'session', session });
+      if (prev) {
+        if (ocLive.isBridgeSession(prev)) ocLive.unsubscribe(prev, ws);
+        else unsubscribe(prev, ws);
       }
 
-      // Replay history
-      const events = getHistory(msg.sessionId);
-      wsSend(ws, { type: 'history', events });
+      ctx.setAttached(msg.sessionId);
+
+      if (ocLive.isBridgeSession(msg.sessionId)) {
+        ocLive.subscribe(msg.sessionId, ws);
+        const session = ocLive.getSession(msg.sessionId);
+        if (session) wsSend(ws, { type: 'session', session });
+        ocLive.getHistory(msg.sessionId).then(events => {
+          wsSend(ws, { type: 'history', events });
+          if (session && session.status === 'running') {
+            wsSend(ws, { type: 'session', session });
+          }
+        }).catch(err => {
+          console.error('[ws] bridge getHistory error:', err.message);
+          wsSend(ws, { type: 'history', events: [] });
+        });
+      } else {
+        subscribe(msg.sessionId, ws);
+        const session = getSession(msg.sessionId);
+        if (session) wsSend(ws, { type: 'session', session });
+        const events = getHistory(msg.sessionId);
+        wsSend(ws, { type: 'history', events });
+        if (session && session.status === 'running') {
+          wsSend(ws, { type: 'session', session });
+        }
+      }
       break;
     }
 
@@ -153,12 +176,18 @@ function handleMessage(ws, msg, ctx) {
         wsSend(ws, { type: 'error', message: 'text is required' });
         return;
       }
-      sendMessage(sessionId, msg.text.trim(), msg.images, {
-        tool: msg.tool || undefined,
-        thinking: !!msg.thinking,
-        model: msg.model || undefined,
-        effort: msg.effort || undefined,
-      });
+      if (ocLive.isBridgeSession(sessionId)) {
+        ocLive.send(sessionId, msg.text.trim()).catch(err => {
+          wsSend(ws, { type: 'error', message: 'OpenCode send failed: ' + err.message });
+        });
+      } else {
+        sendMessage(sessionId, msg.text.trim(), msg.images, {
+          tool: msg.tool || undefined,
+          thinking: !!msg.thinking,
+          model: msg.model || undefined,
+          effort: msg.effort || undefined,
+        });
+      }
       break;
     }
 
@@ -168,7 +197,13 @@ function handleMessage(ws, msg, ctx) {
         wsSend(ws, { type: 'error', message: 'Not attached to a session' });
         return;
       }
-      cancelSession(sessionId);
+      if (ocLive.isBridgeSession(sessionId)) {
+        ocLive.cancel(sessionId).catch(err => {
+          wsSend(ws, { type: 'error', message: 'OpenCode cancel failed: ' + err.message });
+        });
+      } else {
+        cancelSession(sessionId);
+      }
       break;
     }
 
@@ -189,6 +224,37 @@ function handleMessage(ws, msg, ctx) {
         return;
       }
       dropToolUse(sessionId);
+      break;
+    }
+
+    case 'opencode_connect': {
+      const url = msg.url || 'http://127.0.0.1:4096';
+      ocLive.connect(url).then(sessions => {
+        wsSend(ws, { type: 'opencode_connected', url, sessions });
+        wsSend(ws, { type: 'sessions', sessions: [...listSessions(), ...sessions] });
+      }).catch(err => {
+        wsSend(ws, { type: 'error', message: 'OpenCode connect failed: ' + err.message });
+      });
+      break;
+    }
+
+    case 'opencode_disconnect': {
+      ocLive.disconnect();
+      wsSend(ws, { type: 'opencode_disconnected' });
+      wsSend(ws, { type: 'sessions', sessions: listSessions() });
+      break;
+    }
+
+    case 'opencode_refresh': {
+      if (!ocLive.isConnected()) {
+        wsSend(ws, { type: 'error', message: 'Not connected to OpenCode' });
+        return;
+      }
+      ocLive.refreshSessions().then(sessions => {
+        wsSend(ws, { type: 'sessions', sessions: [...listSessions(), ...sessions] });
+      }).catch(err => {
+        wsSend(ws, { type: 'error', message: 'OpenCode refresh failed: ' + err.message });
+      });
       break;
     }
 

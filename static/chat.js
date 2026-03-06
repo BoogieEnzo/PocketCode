@@ -39,6 +39,13 @@
   const progressPanel = document.getElementById("progressPanel");
   const inputArea = document.getElementById("inputArea");
   const inputResizeHandle = document.getElementById("inputResizeHandle");
+  const ocConnectBtn = document.getElementById("ocConnectBtn");
+  const ocModal = document.getElementById("ocModal");
+  const ocUrlInput = document.getElementById("ocUrlInput");
+  const ocHint = document.getElementById("ocHint");
+  const ocConnect = document.getElementById("ocConnect");
+  const ocCancel = document.getElementById("ocCancel");
+  const ocDisconnect = document.getElementById("ocDisconnect");
 
   let ws = null;
   let pendingImages = [];
@@ -303,6 +310,8 @@
         ws.send(JSON.stringify(m));
       }
       messageQueue = [];
+      // Auto-reconnect to OpenCode server if saved
+      if (typeof autoConnectOpenCode === "function") autoConnectOpenCode();
     };
 
     ws.onmessage = (e) => {
@@ -726,11 +735,53 @@
   function renderSessionList() {
     sessionList.innerHTML = "";
 
+    const localSessions = sessions.filter(s => !s.bridge);
+    const bridgeSessions = sessions.filter(s => s.bridge);
+
     const groups = new Map();
-    for (const s of sessions) {
+    for (const s of localSessions) {
       const folder = s.folder || "?";
       if (!groups.has(folder)) groups.set(folder, []);
       groups.get(folder).push(s);
+    }
+
+    // Render bridge sessions first if any
+    if (bridgeSessions.length > 0) {
+      const group = document.createElement("div");
+      group.className = "folder-group";
+      const header = document.createElement("div");
+      header.className = "folder-group-header";
+      header.innerHTML = `<span class="folder-chevron">&#9660;</span>
+        <span class="folder-name" style="color:#4fc3f7">OpenCode Server</span>
+        <span class="folder-count">${bridgeSessions.length}</span>
+        <button class="folder-add-btn" title="Refresh" style="font-size:12px">↻</button>`;
+      header.querySelector(".folder-add-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        wsSend({ action: "opencode_refresh" });
+      });
+      const items = document.createElement("div");
+      items.className = "folder-group-items";
+      for (const s of bridgeSessions) {
+        const div = document.createElement("div");
+        div.className = "session-item" + (s.id === currentSessionId ? " active" : "");
+        const displayName = s.name || "OpenCode Session";
+        const metaHtml = s.status === "running"
+          ? `<span class="status-running">● running</span>`
+          : `<span style="color:#4fc3f7">live</span>`;
+        div.innerHTML = `
+          <div class="session-item-info">
+            <div class="session-item-name">${esc(displayName)}</div>
+            <div class="session-item-meta">${metaHtml}</div>
+          </div>`;
+        div.addEventListener("click", () => {
+          attachSession(s.id, s);
+          if (!isDesktop) closeSidebarFn();
+        });
+        items.appendChild(div);
+      }
+      group.appendChild(header);
+      group.appendChild(items);
+      sessionList.appendChild(group);
     }
 
     for (const [folder, folderSessions] of groups) {
@@ -1348,6 +1399,78 @@
     if (h >= INPUT_MIN_H && h <= getInputMaxH()) {
       inputArea.style.height = h + "px";
       inputArea.classList.add("is-resized");
+    }
+  }
+
+  // ---- OpenCode Bridge ----
+  let ocConnected = false;
+
+  ocConnectBtn.addEventListener("click", () => {
+    ocHint.textContent = "";
+    ocHint.classList.remove("error");
+    const savedUrl = localStorage.getItem("ocUrl");
+    if (savedUrl) ocUrlInput.value = savedUrl;
+    ocDisconnect.style.display = ocConnected ? "" : "none";
+    ocModal.classList.add("open");
+  });
+
+  ocCancel.addEventListener("click", () => ocModal.classList.remove("open"));
+  ocModal.addEventListener("click", (e) => {
+    if (e.target === ocModal) ocModal.classList.remove("open");
+  });
+
+  ocConnect.addEventListener("click", () => {
+    const url = ocUrlInput.value.trim();
+    if (!url) { ocHint.textContent = "URL is required"; ocHint.classList.add("error"); return; }
+    ocHint.textContent = "Connecting...";
+    ocHint.classList.remove("error");
+    wsSend({ action: "opencode_connect", url });
+    localStorage.setItem("ocUrl", url);
+
+    const handler = (e) => {
+      let msg; try { msg = JSON.parse(e.data); } catch { return; }
+      if (msg.type === "opencode_connected") {
+        ws.removeEventListener("message", handler);
+        ocConnected = true;
+        ocConnectBtn.textContent = "🔗 OpenCode ✓";
+        ocConnectBtn.style.background = "#145a40";
+        ocModal.classList.remove("open");
+      }
+      if (msg.type === "error" && msg.message?.includes("OpenCode")) {
+        ws.removeEventListener("message", handler);
+        ocHint.textContent = msg.message;
+        ocHint.classList.add("error");
+      }
+    };
+    ws.addEventListener("message", handler);
+  });
+
+  ocDisconnect.addEventListener("click", () => {
+    wsSend({ action: "opencode_disconnect" });
+    ocConnected = false;
+    ocConnectBtn.textContent = "🔗 Connect OpenCode";
+    ocConnectBtn.style.background = "#1a7f5a";
+    ocModal.classList.remove("open");
+  });
+
+  // Auto-reconnect to OpenCode on page load if previously connected
+  function autoConnectOpenCode() {
+    const savedUrl = localStorage.getItem("ocUrl");
+    if (savedUrl) {
+      wsSend({ action: "opencode_connect", url: savedUrl });
+      const handler = (e) => {
+        let msg; try { msg = JSON.parse(e.data); } catch { return; }
+        if (msg.type === "opencode_connected") {
+          ws.removeEventListener("message", handler);
+          ocConnected = true;
+          ocConnectBtn.textContent = "🔗 OpenCode ✓";
+          ocConnectBtn.style.background = "#145a40";
+        }
+        if (msg.type === "error") {
+          ws.removeEventListener("message", handler);
+        }
+      };
+      ws.addEventListener("message", handler);
     }
   }
 

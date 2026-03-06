@@ -47,6 +47,14 @@ Open `https://[subdomain].[domain]/?token=YOUR_TOKEN` (e.g. on your phone): crea
 
 **Manual start (chat server stopped or for debugging):** From the project directory run `node chat-server.mjs` (listens on 7690 by default). Then open your access URL (the HTTPS address from your Tunnel, e.g. `https://chat.example.com`). First time, append `?token=YOUR_TOKEN` to the URL; run `node cli.js generate-token` to generate and print the Access URL. After logging in once, the browser keeps the session — you can open the same URL without the token next time.
 
+### Monitor OpenCode on the server from your phone (bridge)
+
+You run OpenCode on the server (SSH + TUI) and want to **see progress and send messages** from your phone. Use **Connect OpenCode**.
+
+1. **On the server:** start OpenCode’s HTTP API: `opencode serve --port 4096` (or 4097; avoid port conflicts).
+2. **On your phone:** open your Chat URL (e.g. `https://chat.example.com`), tap **🔗 Connect OpenCode**, enter `http://SERVER_IP:4096` (use `http://127.0.0.1:4096` if Chat runs on the same machine), tap Connect.
+3. After connecting, an **OpenCode Server** group appears in the sidebar. Tap any session to view history, get live updates, and send messages. Use `opencode attach http://127.0.0.1:4096` on the server for the TUI; it shares the same sessions.
+
 ---
 
 ## Architecture

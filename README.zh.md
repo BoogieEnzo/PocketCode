@@ -48,6 +48,14 @@ RemoteLab 在你的 **Mac 或 Linux** 上跑一个 Web 服务，配上 Cloudflar
 
 **手动启动 Chat 服务（服务被停掉或调试时）：** 进入项目目录执行 `node chat-server.mjs`（默认监听 7690）。然后打开你的访问地址（即 Tunnel 对应的 HTTPS，例如 `https://chat.enzoding.com`）。首次访问需在地址后加 `?token=你的token`，用 `node cli.js generate-token` 可生成并打印 Access URL；登录过一次后浏览器会记住，之后直接打开该网址即可，不必再带 token。
 
+### 手机监工服务器上的 OpenCode（桥接）
+
+你在服务器上跑 OpenCode（SSH + TUI），想在手机浏览器里**实时看进度、还能发消息**，用「Connect OpenCode」即可。
+
+1. **服务器上** 起 OpenCode 的 HTTP 服务：`opencode serve --port 4096`（或 4097，端口别冲突）。
+2. **手机** 打开你的 Chat 地址（如 `https://chat.enzoding.com`），侧边栏点 **🔗 Connect OpenCode**，填 `http://服务器IP:4096`（本机填 `http://127.0.0.1:4096`），点 Connect。
+3. 连接成功后侧边栏会出现 **OpenCode Server** 分组，点任意会话即可看历史、收实时流、发消息。Mac/服务器上的 TUI 用 `opencode attach http://127.0.0.1:4096` 连同一服务，两边看到的会话一致。
+
 ---
 
 ## 架构

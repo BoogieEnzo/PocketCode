@@ -675,6 +675,7 @@ body {
       <div class="sidebar-list" id="sessionList"></div>
       <div class="progress-panel" id="progressPanel"></div>
       <button class="new-session-btn" id="newSessionBtn">+ New Session</button>
+      <button class="new-session-btn" id="ocConnectBtn" style="background:#1a7f5a;margin-top:4px">🔗 Connect OpenCode</button>
     </aside>
   </div>
 
@@ -725,6 +726,21 @@ body {
     <div class="modal-actions">
       <button class="btn-cancel" id="cancelModal">Cancel</button>
       <button class="btn-create" id="createSession">Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ocModal">
+  <div class="modal">
+    <h3>Connect OpenCode Server</h3>
+    <label>Server URL</label>
+    <input type="text" id="ocUrlInput" value="http://127.0.0.1:4096" style="width:100%;padding:8px;border:1px solid #444;border-radius:6px;background:#1a1a2e;color:#e0e0e0;font-size:14px;box-sizing:border-box;margin-bottom:4px">
+    <p style="font-size:12px;color:#888;margin:4px 0 8px">On server run: <code style="color:#4fc3f7">opencode serve --port 4096</code></p>
+    <p class="modal-hint" id="ocHint" aria-live="polite"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="ocCancel">Cancel</button>
+      <button class="btn-cancel" id="ocDisconnect" style="display:none;color:#ff6b6b">Disconnect</button>
+      <button class="btn-create" id="ocConnect">Connect</button>
     </div>
   </div>
 </div>
