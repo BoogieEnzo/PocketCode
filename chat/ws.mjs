@@ -94,6 +94,20 @@ function handleMessage(ws, msg, ctx) {
         wsSend(ws, { type: 'error', message: 'tool is required' });
         return;
       }
+      // If OpenCode bridge is connected, creating an "opencode" session should
+      // create a real OpenCode server session (oc:...), not a local CLI one.
+      if (msg.tool === 'opencode' && ocLive.isConnected()) {
+        ocLive.createSession({
+          directory: typeof msg.folder === 'string' ? msg.folder : undefined,
+          title: typeof msg.name === 'string' ? msg.name : undefined,
+        }).then((session) => {
+          wsSend(ws, { type: 'session', session });
+          wsSend(ws, { type: 'sessions', sessions: [...listSessions(), ...ocLive.getCachedSessions()] });
+        }).catch((err) => {
+          wsSend(ws, { type: 'error', message: 'OpenCode create failed: ' + err.message });
+        });
+        return;
+      }
       const folder = msg.folder || process.env.HOME || '/home/fengde';
       const session = createSession(folder, msg.tool, msg.name || '');
       wsSend(ws, { type: 'session', session });

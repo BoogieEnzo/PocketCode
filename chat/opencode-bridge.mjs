@@ -49,6 +49,17 @@ export async function listSessions(baseUrl) {
   return Array.isArray(data) ? data : [];
 }
 
+export async function createSession(baseUrl, options = {}) {
+  const body = {};
+  if (options.directory) body.directory = options.directory;
+  if (options.title) body.title = options.title;
+  const { data } = await request(baseUrl, '/session', {
+    method: 'POST',
+    body,
+  });
+  return data && typeof data === 'object' ? data : null;
+}
+
 export async function getSessionStatus(baseUrl) {
   const { data } = await request(baseUrl, '/session/status');
   return data || {};

@@ -70,10 +70,9 @@ export function getSession(id) {
   const meta = metas.find(m => m.id === id);
   if (!meta) return null;
   const live = liveSessions.get(id);
-  return {
-    ...meta,
-    status: live ? live.status : 'idle',
-  };
+  const s = { ...meta, status: live ? live.status : 'idle' };
+  if (live?.currentModel) s.currentModel = live.currentModel;
+  return s;
 }
 
 export function createSession(folder, tool, name = 'new session') {
@@ -328,8 +327,7 @@ export function cancelSession(sessionId) {
     live.status = 'idle';
     const session = getSession(sessionId);
     const cancelPayload = { ...session, status: 'idle' };
-    const live = liveSessions.get(sessionId);
-    if (live?.currentModel) cancelPayload.currentModel = live.currentModel;
+    if (live.currentModel) cancelPayload.currentModel = live.currentModel;
     broadcast(sessionId, { type: 'session', session: cancelPayload });
     const evt = statusEvent('cancelled');
     appendEvent(sessionId, evt);

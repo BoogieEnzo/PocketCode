@@ -1,5 +1,5 @@
 import {
-  checkHealth, listSessions, getSessionStatus, getMessages,
+  checkHealth, listSessions, createSession as createRemoteSession, getSessionStatus, getMessages,
   getMessage, sendMessageAsync, abortSession, connectSSE,
 } from './opencode-bridge.mjs';
 import {
@@ -87,6 +87,24 @@ export async function refreshSessions() {
     });
   }
   return getCachedSessions();
+}
+
+export async function createSession(options = {}) {
+  if (!bridgeUrl) throw new Error('Not connected to OpenCode');
+  const s = await createRemoteSession(bridgeUrl, options);
+  if (!s?.id) throw new Error('OpenCode create session failed');
+  const created = {
+    id: `oc:${s.id}`,
+    ocId: s.id,
+    name: s.title || s.slug || 'OpenCode Session',
+    tool: 'opencode-live',
+    folder: s.directory || '~',
+    status: 'idle',
+    bridge: true,
+    created: s.time?.created ? new Date(s.time.created).toISOString() : new Date().toISOString(),
+  };
+  sessionCache.set(s.id, created);
+  return enrichSessionWithModel(s.id, created);
 }
 
 function formatModelForDisplay(routing) {

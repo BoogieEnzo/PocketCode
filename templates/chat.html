@@ -550,6 +550,10 @@ body {
 .thinking-toggle.active {
   background: var(--bg-tertiary); border-color: var(--border-strong); color: var(--text);
 }
+.model-tag {
+  font-size: 11px; color: var(--text-muted); max-width: 140px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px;
+}
 #contextTokens {
   font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0;
 }
@@ -704,6 +708,7 @@ body {
           <select class="model-select" id="inlineModelSelect" disabled></select>
           <button class="thinking-toggle" id="thinkingToggle" disabled>Thinking</button>
           <button class="thinking-toggle" id="showThoughtsToggle" disabled>Thoughts</button>
+          <span class="model-tag" id="currentModelTag" title="Current model in use"></span>
           <select class="effort-select" id="effortSelect" disabled style="display:none"></select>
           <button class="img-btn" id="imgBtn" disabled title="Attach image">&#128247;</button>
         </div>

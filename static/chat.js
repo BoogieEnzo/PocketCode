@@ -31,6 +31,7 @@
   const effortSelect = document.getElementById("effortSelect");
   const thinkingToggle = document.getElementById("thinkingToggle");
   const showThoughtsToggle = document.getElementById("showThoughtsToggle");
+  const currentModelTag = document.getElementById("currentModelTag");
   const cancelBtn = document.getElementById("cancelBtn");
   const contextTokens = document.getElementById("contextTokens");
   const compactBtn = document.getElementById("compactBtn");
@@ -395,6 +396,10 @@
           if (idx >= 0) sessions[idx] = msg.session;
           else sessions.push(msg.session);
           renderSessionList();
+          if (msg.session.id === currentSessionId && currentModelTag) {
+            currentModelTag.textContent = msg.session.currentModel || "";
+            currentModelTag.style.display = msg.session.currentModel ? "" : "none";
+          }
         }
         break;
 
@@ -418,6 +423,10 @@
           currentSessionId = null;
           clearMessages();
           showEmpty();
+          if (currentModelTag) {
+            currentModelTag.textContent = "";
+            currentModelTag.style.display = "none";
+          }
         }
         renderSessionList();
         break;
@@ -967,6 +976,10 @@
       }
     }
 
+    if (currentModelTag) {
+      currentModelTag.textContent = session?.currentModel || "";
+      currentModelTag.style.display = session?.currentModel ? "" : "none";
+    }
     restoreDraft();
     msgInput.focus();
     renderSessionList();
