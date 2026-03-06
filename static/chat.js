@@ -11,8 +11,6 @@
   const sessionList = document.getElementById("sessionList");
   const newSessionBtn = document.getElementById("newSessionBtn");
   const newSessionModal = document.getElementById("newSessionModal");
-  const folderInput = document.getElementById("folderInput");
-  const folderSuggestions = document.getElementById("folderSuggestions");
   const toolSelect = document.getElementById("toolSelect");
   const cancelModal = document.getElementById("cancelModal");
   const createSessionBtn = document.getElementById("createSession");
@@ -761,12 +759,9 @@
         e.stopPropagation();
         const tool = selectedTool || toolsList[0]?.id;
         if (!tool) {
-          // No tool loaded yet — fallback to modal
           if (!isDesktop) closeSidebarFn();
           newSessionModal.classList.add("open");
           loadTools();
-          folderInput.value = folder;
-          folderSuggestions.innerHTML = "";
           return;
         }
         if (!isDesktop) closeSidebarFn();
@@ -931,9 +926,6 @@
     if (!isDesktop) closeSidebarFn();
     newSessionModal.classList.add("open");
     loadTools();
-    folderInput.value = "";
-    folderSuggestions.innerHTML = "";
-    folderInput.focus();
   });
 
   cancelModal.addEventListener("click", () =>
@@ -944,13 +936,8 @@
   });
 
   createSessionBtn.addEventListener("click", () => {
-    const folder = folderInput.value.trim();
     const tool = toolSelect.value;
-    if (!folder) {
-      folderInput.focus();
-      return;
-    }
-    wsSend({ action: "create", folder, tool });
+    wsSend({ action: "create", tool });
     newSessionModal.classList.remove("open");
 
     const handler = (e) => {
@@ -983,34 +970,6 @@
       }
     } catch {}
   }
-
-  // Folder autocomplete
-  let acTimer = null;
-  folderInput.addEventListener("input", () => {
-    clearTimeout(acTimer);
-    acTimer = setTimeout(async () => {
-      const q = folderInput.value.trim();
-      if (q.length < 2) {
-        folderSuggestions.innerHTML = "";
-        return;
-      }
-      try {
-        const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        folderSuggestions.innerHTML = "";
-        for (const s of (data.suggestions || []).slice(0, 5)) {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.textContent = s.replace(/^\/Users\/[^/]+/, "~");
-          btn.onclick = () => {
-            folderInput.value = s;
-            folderSuggestions.innerHTML = "";
-          };
-          folderSuggestions.appendChild(btn);
-        }
-      } catch {}
-    }, 200);
-  });
 
   // ---- Image handling ----
   function fileToBase64(file) {
