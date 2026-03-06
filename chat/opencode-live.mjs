@@ -1,6 +1,6 @@
 import {
   checkHealth, listSessions, getSessionStatus, getMessages,
-  sendMessageAsync, abortSession, connectSSE,
+  getMessage, sendMessageAsync, abortSession, connectSSE,
 } from './opencode-bridge.mjs';
 import {
   messageEvent, toolUseEvent, toolResultEvent,
@@ -21,6 +21,8 @@ const sessionCache = new Map();
 const messageRoleCache = new Map();
 // OpenCode session ID -> { model?: {providerID, modelID}, agent?: string }
 const sessionRoutingCache = new Map();
+// OpenCode part IDs that have already been emitted as reasoning.
+const emittedReasoningPartIds = new Set();
 
 export function isConnected() { return !!bridgeUrl; }
 export function getUrl() { return bridgeUrl; }
@@ -49,6 +51,7 @@ export function disconnect() {
   listeners.clear();
   messageRoleCache.clear();
   sessionRoutingCache.clear();
+  emittedReasoningPartIds.clear();
   console.log(`${TAG} Disconnected`);
 }
 
@@ -86,13 +89,27 @@ export async function refreshSessions() {
   return getCachedSessions();
 }
 
+function formatModelForDisplay(routing) {
+  if (!routing?.model?.providerID || !routing?.model?.modelID) return undefined;
+  return `${routing.model.providerID}/${routing.model.modelID}`;
+}
+
+function enrichSessionWithModel(ocId, session) {
+  const routing = sessionRoutingCache.get(ocId);
+  const currentModel = formatModelForDisplay(routing);
+  return currentModel ? { ...session, currentModel } : session;
+}
+
 export function getCachedSessions() {
-  return [...sessionCache.values()];
+  return [...sessionCache.values()].map((s) =>
+    enrichSessionWithModel(s.ocId ?? toOcId(s.id), s)
+  );
 }
 
 export function getSession(sessionId) {
   const ocId = toOcId(sessionId);
-  return sessionCache.get(ocId) || null;
+  const s = sessionCache.get(ocId);
+  return s ? enrichSessionWithModel(ocId, s) : null;
 }
 
 export function subscribe(sessionId, ws) {
@@ -181,14 +198,11 @@ export async function send(sessionId, text) {
   const cached = sessionCache.get(ocId);
   if (cached) {
     cached.status = 'running';
-    broadcast(ocId, { type: 'session', session: cached });
+    broadcast(ocId, { type: 'session', session: enrichSessionWithModel(ocId, cached) });
   }
 
-  const routing = await getSessionRouting(ocId);
-  return sendMessageAsync(bridgeUrl, ocId, text, {
-    model: routing.model,
-    agent: routing.agent,
-  });
+  // Do not pass model/agent — OpenCode session's selection is authoritative.
+  return sendMessageAsync(bridgeUrl, ocId, text, {});
 }
 
 /**
@@ -202,7 +216,7 @@ export async function cancel(sessionId) {
   const cached = sessionCache.get(ocId);
   if (cached) {
     cached.status = 'idle';
-    broadcast(ocId, { type: 'session', session: cached });
+    broadcast(ocId, { type: 'session', session: enrichSessionWithModel(ocId, cached) });
   }
   broadcast(ocId, { type: 'event', event: statusEvent('cancelled') });
 
@@ -231,6 +245,15 @@ function handleSSEEvent(eventType, data) {
   if (busType === 'message.updated' && properties.info?.id && properties.info?.role) {
     messageRoleCache.set(properties.info.id, properties.info.role);
     updateSessionRoutingFromInfo(properties.info);
+    if (properties.info.role === 'assistant' && properties.info.sessionID) {
+      hydrateReasoningFromMessage(properties.info.sessionID, properties.info.id).catch(() => {});
+    }
+    // Broadcast session with updated currentModel when we learn the model from message.updated
+    const sid = properties.info?.sessionID;
+    if (sid && sessionCache.has(sid)) {
+      const c = sessionCache.get(sid);
+      broadcast(sid, { type: 'session', session: enrichSessionWithModel(sid, c) });
+    }
     return;
   }
 
@@ -272,7 +295,7 @@ function handleSessionEvent(eventType, data) {
     cached.status = 'idle';
   }
 
-  broadcast(id, { type: 'session', session: cached });
+  broadcast(id, { type: 'session', session: enrichSessionWithModel(id, cached) });
 }
 
 function convertPartEvent(data) {
@@ -317,7 +340,7 @@ function convertPartEvent(data) {
         if (sid && sessionCache.has(sid)) {
           const c = sessionCache.get(sid);
           c.status = 'idle';
-          broadcast(sid, { type: 'session', session: c });
+          broadcast(sid, { type: 'session', session: enrichSessionWithModel(sid, c) });
         }
       }
       if (data.tokens) {
@@ -385,6 +408,20 @@ async function getSessionRouting(ocId) {
   }
   sessionRoutingCache.set(ocId, routing);
   return routing;
+}
+
+async function hydrateReasoningFromMessage(sessionID, messageID) {
+  const msg = await getMessage(bridgeUrl, sessionID, messageID).catch(() => null);
+  if (!msg || !Array.isArray(msg.parts)) return;
+
+  for (const part of msg.parts) {
+    if (part?.type !== 'reasoning') continue;
+    if (!part.id || emittedReasoningPartIds.has(part.id)) continue;
+    emittedReasoningPartIds.add(part.id);
+    if (part.text) {
+      broadcast(sessionID, { type: 'event', event: reasoningEvent(part.text) });
+    }
+  }
 }
 
 export function isBridgeSession(sessionId) {

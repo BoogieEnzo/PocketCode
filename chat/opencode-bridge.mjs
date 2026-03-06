@@ -60,6 +60,11 @@ export async function getMessages(baseUrl, sessionId, limit) {
   return Array.isArray(data) ? data : [];
 }
 
+export async function getMessage(baseUrl, sessionId, messageId) {
+  const { data } = await request(baseUrl, `/session/${sessionId}/message/${messageId}`);
+  return data && typeof data === 'object' ? data : null;
+}
+
 export async function sendMessageAsync(baseUrl, sessionId, text, options = {}) {
   const body = { parts: [{ type: 'text', text }] };
   if (options.model) body.model = options.model;

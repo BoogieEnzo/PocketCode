@@ -30,6 +30,7 @@
   const inlineModelSelect = document.getElementById("inlineModelSelect");
   const effortSelect = document.getElementById("effortSelect");
   const thinkingToggle = document.getElementById("thinkingToggle");
+  const showThoughtsToggle = document.getElementById("showThoughtsToggle");
   const cancelBtn = document.getElementById("cancelBtn");
   const contextTokens = document.getElementById("contextTokens");
   const compactBtn = document.getElementById("compactBtn");
@@ -63,6 +64,8 @@
   let selectedTool = localStorage.getItem("selectedTool") || null;
   // Default thinking to enabled; only disable if explicitly set to 'false'
   let thinkingEnabled = localStorage.getItem("thinkingEnabled") !== "false";
+  // Default thoughts display to disabled to reduce visual noise/token paranoia.
+  let showThoughtsEnabled = localStorage.getItem("showThoughtsEnabled") === "true";
   // Model/effort are stored per-tool: "selectedModel_claude", "selectedModel_codex"
   let selectedModel = null;
   let selectedEffort = null;
@@ -160,12 +163,19 @@
   // ---- Thinking toggle / effort select ----
   function updateThinkingUI() {
     thinkingToggle.classList.toggle("active", thinkingEnabled);
+    showThoughtsToggle.classList.toggle("active", showThoughtsEnabled);
   }
   updateThinkingUI();
 
   thinkingToggle.addEventListener("click", () => {
     thinkingEnabled = !thinkingEnabled;
     localStorage.setItem("thinkingEnabled", thinkingEnabled);
+    updateThinkingUI();
+  });
+
+  showThoughtsToggle.addEventListener("click", () => {
+    showThoughtsEnabled = !showThoughtsEnabled;
+    localStorage.setItem("showThoughtsEnabled", showThoughtsEnabled);
     updateThinkingUI();
   });
 
@@ -450,6 +460,7 @@
     inlineToolSelect.disabled = !hasSession;
     inlineModelSelect.disabled = !hasSession;
     thinkingToggle.disabled = !hasSession;
+    showThoughtsToggle.disabled = !hasSession;
     effortSelect.disabled = !hasSession;
   }
 
@@ -680,6 +691,7 @@
   }
 
   function renderReasoning(evt) {
+    if (!showThoughtsEnabled) return;
     const container = getThinkingBody();
     const div = document.createElement("div");
     div.className = "reasoning";
@@ -942,6 +954,7 @@
     inlineToolSelect.disabled = false;
     inlineModelSelect.disabled = false;
     thinkingToggle.disabled = false;
+    showThoughtsToggle.disabled = false;
     effortSelect.disabled = false;
 
     if (session?.tool && toolsList.some((t) => t.id === session.tool)) {

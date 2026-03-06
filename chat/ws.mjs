@@ -183,10 +183,13 @@ function handleMessage(ws, msg, ctx) {
           wsSend(ws, { type: 'error', message: 'OpenCode send failed: ' + err.message });
         });
       } else {
+        const session = getSession(sessionId);
+        const effectiveTool = msg.tool || session?.tool;
+        const isOpencode = effectiveTool === 'opencode';
         sendMessage(sessionId, msg.text.trim(), msg.images, {
           tool: msg.tool || undefined,
           thinking: !!msg.thinking,
-          model: msg.model || undefined,
+          model: isOpencode ? undefined : (msg.model || undefined),
           effort: msg.effort || undefined,
         });
       }

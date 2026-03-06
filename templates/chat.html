@@ -440,8 +440,9 @@ body {
 
 /* Reasoning text inside thinking block */
 .reasoning {
-  font-size: 12px; color: var(--text-secondary); font-style: italic;
+  font-size: 12px; color: var(--text-muted); font-style: italic;
   line-height: 1.55; margin-bottom: 8px;
+  opacity: 0.95;
 }
 
 /* Tool cards inside thinking block */
@@ -702,6 +703,7 @@ body {
           <select class="tool-select" id="inlineToolSelect" disabled></select>
           <select class="model-select" id="inlineModelSelect" disabled></select>
           <button class="thinking-toggle" id="thinkingToggle" disabled>Thinking</button>
+          <button class="thinking-toggle" id="showThoughtsToggle" disabled>Thoughts</button>
           <select class="effort-select" id="effortSelect" disabled style="display:none"></select>
           <button class="img-btn" id="imgBtn" disabled title="Attach image">&#128247;</button>
         </div>

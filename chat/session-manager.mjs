@@ -54,12 +54,15 @@ function saveSessionsMeta(list) {
 
 export function listSessions() {
   const metas = loadSessionsMeta();
-  return metas.map(m => ({
-    ...m,
-    status: liveSessions.has(m.id)
-      ? liveSessions.get(m.id).status
-      : 'idle',
-  }));
+  return metas.map(m => {
+    const live = liveSessions.get(m.id);
+    const s = {
+      ...m,
+      status: live ? live.status : 'idle',
+    };
+    if (live?.currentModel) s.currentModel = live.currentModel;
+    return s;
+  });
 }
 
 export function getSession(id) {
@@ -208,7 +211,9 @@ export function sendMessage(sessionId, text, images, options = {}) {
   }
 
   live.status = 'running';
-  broadcast(sessionId, { type: 'session', session: { ...session, status: 'running' } });
+  const sessionPayload = { ...session, status: 'running' };
+  if (live.currentModel) sessionPayload.currentModel = live.currentModel;
+  broadcast(sessionId, { type: 'session', session: sessionPayload });
 
   const onEvent = (evt) => {
     console.log(`[session-mgr] onEvent session=${sessionId.slice(0,8)} type=${evt.type} content=${(evt.content || evt.toolName || '').slice(0, 80)}`);
@@ -236,10 +241,9 @@ export function sendMessage(sessionId, text, images, options = {}) {
       l.status = 'idle';
       l.runner = null;
     }
-    broadcast(sessionId, {
-      type: 'session',
-      session: { ...session, status: 'idle' },
-    });
+    const idlePayload = { ...session, status: 'idle' };
+    if (l?.currentModel) idlePayload.currentModel = l.currentModel;
+    broadcast(sessionId, { type: 'session', session: idlePayload });
 
     // Handle compact completion: extract summary, reset session
     if (l?.pendingCompact) {
@@ -289,15 +293,9 @@ export function sendMessage(sessionId, text, images, options = {}) {
   if (options.thinking) {
     spawnOptions.thinking = true;
   }
-  if (options.model) {
+  // OpenCode uses its own model selection; do not override.
+  if (options.model && effectiveTool !== 'opencode') {
     spawnOptions.model = options.model;
-  } else if (effectiveTool === 'opencode') {
-    // Default OpenCode model: prefer env override, fall back to GLM coding plan.
-    // This avoids relying on OpenCode's internal default, which may point to a
-    // non-existent or unavailable model (e.g. opencode/kimi-k2.5-free).
-    const defaultOpencodeModel =
-      process.env.OPENCODE_DEFAULT_MODEL || 'zhipuai-coding-plan/glm-4.7';
-    spawnOptions.model = defaultOpencodeModel;
   }
   if (options.effort) {
     spawnOptions.effort = options.effort;
@@ -314,6 +312,7 @@ export function sendMessage(sessionId, text, images, options = {}) {
   console.log(
     `[session-mgr] Spawning tool=${effectiveTool} model=${logModel} effort=${options.effort || 'default'} thinking=${!!options.thinking}`,
   );
+  live.currentModel = spawnOptions.model || undefined;
   const runner = spawnTool(effectiveTool, session.folder, actualText, onEvent, onExit, spawnOptions);
   live.runner = runner;
 }
@@ -328,10 +327,10 @@ export function cancelSession(sessionId) {
     live.runner = null;
     live.status = 'idle';
     const session = getSession(sessionId);
-    broadcast(sessionId, {
-      type: 'session',
-      session: { ...session, status: 'idle' },
-    });
+    const cancelPayload = { ...session, status: 'idle' };
+    const live = liveSessions.get(sessionId);
+    if (live?.currentModel) cancelPayload.currentModel = live.currentModel;
+    broadcast(sessionId, { type: 'session', session: cancelPayload });
     const evt = statusEvent('cancelled');
     appendEvent(sessionId, evt);
     broadcast(sessionId, { type: 'event', event: evt });
