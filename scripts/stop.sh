@@ -1,10 +1,6 @@
 #!/bin/bash
-echo "Stopping Claude Code web services..."
-# Unload legacy shared ttyd plist if present
-launchctl unload ~/Library/LaunchAgents/com.ttyd.claude.plist 2>/dev/null || true
-launchctl unload ~/Library/LaunchAgents/com.authproxy.claude.plist 2>/dev/null || echo "auth-proxy not loaded"
-launchctl unload ~/Library/LaunchAgents/com.chatserver.claude.plist 2>/dev/null || echo "chat-server not loaded"
-if [ -f ~/Library/LaunchAgents/com.cloudflared.tunnel.plist ]; then
-  launchctl unload ~/Library/LaunchAgents/com.cloudflared.tunnel.plist 2>/dev/null || echo "cloudflared not loaded"
-fi
+echo "Stopping RemoteLab services..."
+systemctl --user stop remotelab-chat.service 2>/dev/null || echo "chat-server not running"
+systemctl --user stop remotelab-proxy.service 2>/dev/null || echo "auth-proxy not running"
+systemctl --user stop remotelab-tunnel.service 2>/dev/null || true
 echo "Services stopped!"

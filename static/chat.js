@@ -1147,9 +1147,12 @@
   function sendMessage() {
     const text = msgInput.value.trim();
     if ((!text && pendingImages.length === 0) || !currentSessionId) return;
+    const activeSession = sessions.find((s) => s.id === currentSessionId);
+    const isBridgeSession = !!activeSession?.bridge;
     const msg = { action: "send", text: text || "(image)" };
     if (selectedTool) msg.tool = selectedTool;
-    if (selectedModel) msg.model = selectedModel;
+    // In OpenCode bridge mode, model selection must stay inside OpenCode itself.
+    if (selectedModel && !isBridgeSession) msg.model = selectedModel;
     if (currentToolEffortLevels) {
       // Codex: send effort level (always), skip thinking flag
       if (selectedEffort) msg.effort = selectedEffort;

@@ -90,6 +90,7 @@ function handleMessage(ws, msg, ctx) {
     }
 
     case 'create': {
+      console.log(`[ws] create action: tool=${msg.tool} folder=${msg.folder} connected=${ocLive.isConnected()}`);
       if (!msg.tool) {
         wsSend(ws, { type: 'error', message: 'tool is required' });
         return;
@@ -106,6 +107,12 @@ function handleMessage(ws, msg, ctx) {
         }).catch((err) => {
           wsSend(ws, { type: 'error', message: 'OpenCode create failed: ' + err.message });
         });
+        return;
+      }
+      // Avoid silently falling back to local "opencode run" which may use a
+      // misconfigured default model and fail with "Model not found".
+      if (msg.tool === 'opencode' && !ocLive.isConnected()) {
+        wsSend(ws, { type: 'error', message: 'OpenCode is not connected. Click "Connect OpenCode" first.' });
         return;
       }
       const folder = msg.folder || process.env.HOME || '/home/fengde';

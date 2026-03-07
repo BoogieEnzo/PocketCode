@@ -293,7 +293,8 @@ export function sendMessage(sessionId, text, images, options = {}) {
     spawnOptions.thinking = true;
   }
   // OpenCode uses its own model selection; do not override.
-  if (options.model && effectiveTool !== 'opencode') {
+  // UPDATE: User requested to allow overriding model for OpenCode to avoid hardcoded defaults.
+  if (options.model) {
     spawnOptions.model = options.model;
   }
   if (options.effort) {

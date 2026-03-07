@@ -201,7 +201,7 @@ export async function handleRequest(req, res) {
   }
 
   if (pathname === '/api/models' && req.method === 'GET') {
-    const toolId = url.query ? new URLSearchParams(url.query).get('tool') || '' : '';
+    const toolId = typeof parsedUrl.query?.tool === 'string' ? parsedUrl.query.tool : '';
     const result = await getModelsForTool(toolId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));

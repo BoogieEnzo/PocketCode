@@ -45,6 +45,12 @@ Open `https://[subdomain].[domain]/?token=YOUR_TOKEN` (e.g. on your phone): crea
 
 **Daily:** Services auto-start on boot. Use `remotelab start` / `remotelab stop` / `remotelab restart chat` when needed.
 
+`remotelab start` and `remotelab stop` auto-detect your OS:
+- macOS → `launchctl`
+- Linux → `systemctl --user`
+
+If Linux reports missing `remotelab-chat` / `remotelab-proxy` units, run `remotelab setup` once to generate systemd user services.
+
 **Manual start (chat server stopped or for debugging):** From the project directory run `node chat-server.mjs` (listens on 7690 by default). Then open your access URL (the HTTPS address from your Tunnel, e.g. `https://chat.example.com`). First time, append `?token=YOUR_TOKEN` to the URL; run `node cli.js generate-token` to generate and print the Access URL. After logging in once, the browser keeps the session — you can open the same URL without the token next time.
 
 ### Monitor OpenCode on the server from your phone (bridge)
